@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Nodrog Maintenance — Login Flow</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --navy:#0E2236; --navy2:#0A1B2B; --blue:#1E63D6; --orange:#F4842B;
+    --ink:#0B1A2B; --muted:#5C6B7E; --line:#DCE4ED; --surface:#fff; --surface2:#F4F7FB;
+    --ok:#1B9255; --danger:#D63A3A;
+  }
+  * { box-sizing:border-box; }
+  html,body { margin:0; padding:0; background:#070D16; color:#E9F1F9;
+    font-family:'Plus Jakarta Sans',system-ui,sans-serif; -webkit-font-smoothing:antialiased; }
+  .wrap { max-width:1500px; margin:0 auto; padding:46px 36px 70px; }
+  .head { margin-bottom:38px; }
+  .logo { display:flex; align-items:center; gap:12px; margin-bottom:26px; }
+  .logo .mark { width:42px; height:42px; border-radius:11px; background:var(--orange); transform:rotate(45deg);
+    display:flex; align-items:center; justify-content:center; }
+  .logo .mark svg { transform:rotate(-45deg); }
+  .logo .name { font-weight:900; font-size:20px; letter-spacing:-.01em; line-height:1; }
+  .logo .sub { font-weight:700; font-size:9.5px; letter-spacing:.24em; color:#8FA3B8; margin-top:3px; }
+  .eyebrow { font-size:12px; font-weight:800; letter-spacing:.16em; text-transform:uppercase; color:var(--orange); margin-bottom:12px; }
+  h1 { font-size:34px; font-weight:800; letter-spacing:-.02em; margin:0 0 12px; line-height:1.08; }
+  .lede { color:#9FB3C8; font-size:16.5px; max-width:680px; line-height:1.55; margin:0; }
+
+  .rail { display:flex; gap:22px; align-items:flex-start; overflow-x:auto; padding:8px 4px 26px; scroll-snap-type:x proximity; }
+  .col { scroll-snap-align:start; flex:0 0 auto; width:268px; display:flex; flex-direction:column; align-items:center; position:relative; }
+  .stepbadge { display:flex; align-items:center; gap:9px; margin-bottom:14px; align-self:flex-start; }
+  .stepbadge .n { width:28px; height:28px; border-radius:999px; background:var(--blue); color:#fff; font-weight:800; font-size:14px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .stepbadge .t { font-weight:800; font-size:15px; }
+  .arrow { position:absolute; top:150px; right:-19px; width:30px; height:30px; color:#33485F; z-index:3; }
+
+  /* phone */
+  .phone { width:268px; height:566px; border-radius:38px; padding:9px; background:linear-gradient(145deg,#222C39,#0D131C);
+    box-shadow:0 30px 60px rgba(0,0,0,.5), inset 0 1px 2px rgba(255,255,255,.1); position:relative; }
+  .notch { position:absolute; top:16px; left:50%; transform:translateX(-50%); width:88px; height:22px; background:#05080D; border-radius:999px; z-index:6; }
+  .screen { width:100%; height:100%; border-radius:30px; overflow:hidden; position:relative; background:var(--surface2); color:var(--ink); display:flex; flex-direction:column; }
+  .cap { margin-top:16px; font-size:13px; color:#9FB3C8; line-height:1.5; text-align:left; width:100%; }
+  .cap b { color:#E9F1F9; }
+
+  /* screen pieces */
+  .sbar { height:30px; display:flex; align-items:center; justify-content:space-between; padding:0 16px; font-size:11px; font-weight:700; color:var(--ink); }
+  .pad { padding:0 20px; }
+
+  /* S1 home screen */
+  .homebg { flex:1; background:linear-gradient(165deg,#13314f,#0A1B2B); position:relative; display:flex; flex-direction:column; align-items:center; }
+  .homebg .grid { position:absolute; inset:0; opacity:.10; background-image:repeating-linear-gradient(45deg,#fff 0 1px,transparent 1px 16px); }
+  .appicon { width:74px; height:74px; border-radius:18px; background:var(--orange); display:flex; align-items:center; justify-content:center; box-shadow:0 12px 26px rgba(0,0,0,.4); margin-top:120px; position:relative; }
+  .applabel { color:#fff; font-size:12.5px; font-weight:700; margin-top:11px; position:relative; }
+  .tap { position:absolute; width:54px; height:54px; border:2.5px solid rgba(255,255,255,.85); border-radius:999px; bottom:150px; }
+
+  /* generic login screen */
+  .lscreen { flex:1; background:linear-gradient(168deg,var(--navy) 0%,#0A1B2B 60%,#0B2238 100%); padding:30px 20px 0; display:flex; flex-direction:column; }
+  .lscreen h2 { color:#fff; font-size:19px; font-weight:800; margin:18px 0 4px; }
+  .lscreen p.s { color:#9FB3C8; font-size:11.5px; margin:0 0 18px; line-height:1.4; }
+  .card { background:#fff; border-radius:15px; padding:16px; box-shadow:0 14px 36px rgba(0,0,0,.3); }
+  .lbl { font-size:11px; font-weight:700; color:var(--ink); margin-bottom:5px; }
+  .inp { height:42px; border:1px solid var(--line); border-radius:10px; background:#fff; display:flex; align-items:center; padding:0 11px; font-size:13.5px; color:var(--ink); margin-bottom:12px; gap:8px; }
+  .inp.focus { border-color:var(--blue); box-shadow:0 0 0 3px rgba(30,99,214,.15); }
+  .inp .ph { color:#9AA8B8; }
+  .dots { letter-spacing:3px; color:var(--ink); }
+  .btn { height:46px; border-radius:11px; background:var(--blue); color:#fff; font-weight:800; font-size:14px; display:flex; align-items:center; justify-content:center; gap:8px; }
+  .link { text-align:center; color:#9FB3C8; font-size:11.5px; margin-top:14px; }
+  .link span { color:#fff; font-weight:700; }
+
+  /* verifying */
+  .spin { width:46px; height:46px; border-radius:999px; border:4px solid rgba(255,255,255,.2); border-top-color:var(--orange); margin:0 auto 16px; animation:sp 1s linear infinite; }
+  @keyframes sp { to { transform:rotate(360deg); } }
+  .center { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:0 30px; }
+  .pill { display:inline-flex; align-items:center; gap:6px; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.14); border-radius:999px; padding:6px 12px; font-size:11px; color:#cfe0f0; margin-top:14px; }
+
+  /* dashboard landings */
+  .topbar { height:46px; background:#fff; border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:space-between; padding:0 14px; }
+  .miniLogo { display:flex; align-items:center; gap:7px; }
+  .miniLogo .m { width:22px; height:22px; border-radius:7px; background:var(--orange); transform:rotate(45deg); }
+  .miniLogo .nm { font-weight:900; font-size:13px; color:var(--ink); }
+  .chip { font-size:10px; font-weight:800; padding:5px 9px; border-radius:999px; display:inline-flex; align-items:center; gap:4px; }
+  .body { flex:1; background:var(--surface2); padding:14px; overflow:hidden; }
+  .greet { font-size:16px; font-weight:800; color:var(--ink); }
+  .sub { font-size:10.5px; color:var(--muted); margin-top:1px; margin-bottom:12px; }
+  .stat { background:#fff; border:1px solid var(--line); border-radius:13px; padding:11px; }
+  .stat .v { font-size:22px; font-weight:800; color:var(--ink); line-height:1; }
+  .stat .l { font-size:10px; color:var(--muted); margin-top:4px; }
+  .g2 { display:grid; grid-template-columns:1fr 1fr; gap:9px; }
+  .navmini { height:48px; background:#fff; border-top:1px solid var(--line); display:flex; }
+  .navmini div { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; font-size:8.5px; font-weight:700; color:var(--muted); }
+  .navmini div.on { color:var(--blue); }
+  .ndot { width:15px; height:15px; border-radius:5px; background:currentColor; opacity:.85; }
+  .note { background:rgba(244,132,43,.12); border:1px solid rgba(244,132,43,.4); color:#F4842B; border-radius:11px; padding:9px 11px; font-size:10.5px; font-weight:700; margin-top:10px; }
+
+  /* footer band */
+  .band { margin-top:40px; display:grid; grid-template-columns:repeat(3,1fr); gap:18px; }
+  .bcard { background:#0F1E2E; border:1px solid #1E3147; border-radius:16px; padding:20px 22px; }
+  .bcard h3 { margin:0 0 7px; font-size:15.5px; font-weight:800; color:#fff; display:flex; align-items:center; gap:9px; }
+  .bcard h3 .ic { width:30px; height:30px; border-radius:9px; background:rgba(30,99,214,.18); color:#5C9BFF; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .bcard p { margin:0; color:#9FB3C8; font-size:13px; line-height:1.55; }
+  .bcard code { background:#08121C; padding:1px 6px; border-radius:5px; font-size:12px; color:#cfe0f0; font-family:ui-monospace,Menlo,monospace; }
+  .foot { margin-top:34px; color:#5C6B7E; font-size:12px; display:flex; justify-content:space-between; border-top:1px solid #1A2738; padding-top:18px; flex-wrap:wrap; gap:8px; }
+  @media (max-width:900px){ .band{ grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="head">
+      <div class="logo">
+        <img src="assets/nodrog-mark-light.svg" alt="Nodrog Logistics" style="height:46px;width:auto;margin-right:2px">
+        <div><div class="name">NODROG</div><div class="sub">LOGISTICS</div></div>
+      </div>
+      <div class="eyebrow">Fleet Maintenance · Login Flow</div>
+      <h1>How the team signs in</h1>
+      <p class="lede">Logins run on <b style="color:#fff">Supabase Auth</b> — every mechanic has their own work-email account, and the app only loads the fleets their role allows. Here's the full journey from tapping the icon to landing on the right dashboard.</p>
+    </div>
+
+    <div class="rail">
+
+      <!-- 1 OPEN -->
+      <div class="col">
+        <div class="stepbadge"><div class="n">1</div><div class="t">Open the app</div></div>
+        <div class="phone"><div class="notch"></div><div class="screen">
+          <div class="sbar" style="color:#fff;"><span>9:41</span><span>📶 100%</span></div>
+          <div class="homebg"><div class="grid"></div>
+            <div class="appicon" style="background:#0E2236"><img src="assets/nodrog-mark-light.svg" alt="" style="height:52px;width:auto"></div>
+            <div class="applabel">Nodrog Maint.</div>
+            <div class="tap"></div>
+          </div>
+        </div></div>
+        <div class="cap">Installed to the home screen via <b>Add to Home Screen</b> — opens full-screen like a native app. A saved session skips straight to the dashboard.</div>
+        <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </div>
+
+      <!-- 2 SIGN IN -->
+      <div class="col">
+        <div class="stepbadge"><div class="n">2</div><div class="t">Enter email &amp; password</div></div>
+        <div class="phone"><div class="notch"></div><div class="screen">
+          <div class="sbar" style="color:#fff;"><span>9:41</span><span>📶 100%</span></div>
+          <div class="lscreen">
+            <div style="display:flex;align-items:center;gap:8px;"><img src="assets/nodrog-mark-light.svg" alt="" style="height:30px;width:auto"><div style="font-weight:900;color:#fff;font-size:14px;margin-left:4px;">NODROG</div></div>
+            <h2>Fleet Maintenance</h2>
+            <p class="s">Sign in to your account.</p>
+            <div class="card">
+              <div class="lbl">Email</div>
+              <div class="inp">marlon@nodrog.com</div>
+              <div class="lbl">Password</div>
+              <div class="inp focus"><span class="dots">••••••••</span></div>
+              <div class="btn">Sign in</div>
+              <div class="link"><span>Forgot password?</span></div>
+            </div>
+          </div>
+        </div></div>
+        <div class="cap">Each person uses their own <b>work email</b>. A 4-digit PIN or fingerprint can be enabled for fast re-entry on a shared yard phone.</div>
+        <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </div>
+
+      <!-- 3 VERIFY -->
+      <div class="col">
+        <div class="stepbadge"><div class="n">3</div><div class="t">Supabase verifies</div></div>
+        <div class="phone"><div class="notch"></div><div class="screen">
+          <div class="sbar" style="color:#fff;"><span>9:41</span><span>📶 100%</span></div>
+          <div class="lscreen" style="justify-content:center;">
+            <div class="center">
+              <div class="spin"></div>
+              <div style="color:#fff;font-weight:800;font-size:15px;">Signing you in…</div>
+              <div style="color:#9FB3C8;font-size:11.5px;margin-top:6px;line-height:1.45;">Checking credentials and loading your fleets</div>
+              <div class="pill">🔒 Secure session · token issued</div>
+            </div>
+          </div>
+        </div></div>
+        <div class="cap">Supabase checks the password and returns a <b>secure session token</b>. Wrong details show a clear error; the token keeps them signed in next time.</div>
+        <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </div>
+
+      <!-- 4 ADMIN LANDS -->
+      <div class="col">
+        <div class="stepbadge"><div class="n">4</div><div class="t">Lands on their dashboard</div></div>
+        <div class="phone"><div class="notch"></div><div class="screen">
+          <div class="sbar"><span>9:41</span><span>📶 100%</span></div>
+          <div class="topbar">
+            <div class="miniLogo"><img src="assets/nodrog-mark.svg" alt="" style="height:22px;width:auto"><div class="nm">NODROG</div></div>
+            <div style="display:flex;gap:6px;"><span class="chip" style="background:#EAF0FA;color:var(--blue);">⇄ All fleets</span></div>
+          </div>
+          <div class="body">
+            <div class="greet">Good day, Andre</div>
+            <div class="sub">Fleet Admin · All fleets</div>
+            <div class="g2">
+              <div class="stat"><div class="v">3</div><div class="l">Checks due</div></div>
+              <div class="stat"><div class="v" style="color:var(--danger)">4</div><div class="l">Open issues</div></div>
+              <div class="stat"><div class="v">6</div><div class="l">Active trucks</div></div>
+              <div class="stat"><div class="v" style="color:var(--orange)">3</div><div class="l">Invoices</div></div>
+            </div>
+            <div class="note">Admin tools: invoices · fleets · add parts</div>
+          </div>
+          <div class="navmini">
+            <div class="on"><div class="ndot"></div>Home</div>
+            <div><div class="ndot"></div>Trucks</div>
+            <div><div class="ndot"></div>Issues</div>
+            <div><div class="ndot"></div>Stock</div>
+            <div><div class="ndot"></div>More</div>
+          </div>
+        </div></div>
+        <div class="cap"><b>Admin / lead mechanic →</b> sees the fleet switcher and admin tools (invoices, fleets, add-part).</div>
+      </div>
+
+      <!-- 4b MECHANIC LANDS -->
+      <div class="col">
+        <div class="stepbadge"><div class="n" style="background:var(--orange)">4</div><div class="t">…or a single-fleet view</div></div>
+        <div class="phone"><div class="notch"></div><div class="screen">
+          <div class="sbar"><span>9:41</span><span>📶 100%</span></div>
+          <div class="topbar">
+            <div class="miniLogo"><img src="assets/nodrog-mark.svg" alt="" style="height:22px;width:auto"><div class="nm">NODROG</div></div>
+            <div><span class="chip" style="background:#FBEFE3;color:var(--orange);">Massy</span></div>
+          </div>
+          <div class="body">
+            <div class="greet">Good day, Kemar</div>
+            <div class="sub">Mechanic · Massy only</div>
+            <div class="g2">
+              <div class="stat"><div class="v">2</div><div class="l">Checks due</div></div>
+              <div class="stat"><div class="v" style="color:var(--danger)">2</div><div class="l">Open issues</div></div>
+              <div class="stat"><div class="v">3</div><div class="l">Active trucks</div></div>
+              <div class="stat"><div class="v" style="color:var(--orange)">1</div><div class="l">Low stock</div></div>
+            </div>
+            <div class="note" style="background:rgba(27,146,85,.12);border-color:rgba(27,146,85,.4);color:var(--ok);">Only Massy data is visible — IGL is hidden by the database</div>
+          </div>
+          <div class="navmini">
+            <div class="on"><div class="ndot"></div>Home</div>
+            <div><div class="ndot"></div>Trucks</div>
+            <div><div class="ndot"></div>Issues</div>
+            <div><div class="ndot"></div>Stock</div>
+            <div><div class="ndot"></div>More</div>
+          </div>
+        </div></div>
+        <div class="cap"><b>Fleet mechanic →</b> sees only their fleet. Row-level security means IGL data is never sent to a Massy login — no admin tools shown.</div>
+      </div>
+
+    </div>
+
+    <!-- supporting notes -->
+    <div class="band">
+      <div class="bcard">
+        <h3><span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v12H4zM4 20h16M9 8h6"/></svg></span> Inviting your team</h3>
+        <p>From Supabase you <b>invite by email</b>, pick a role and fleet(s), and they're live. They set their own password from the invite link — you never handle passwords.</p>
+      </div>
+      <div class="bcard">
+        <h3><span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 20 6v6c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V6l8-3z"/></svg></span> Off-boarding is instant</h3>
+        <p><b>Deactivate</b> a user the day they leave and access ends immediately — no shared password to reset. Every check, issue and invoice stays stamped with who did it.</p>
+      </div>
+      <div class="bcard">
+        <h3><span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5v14"/></svg></span> Forgot password</h3>
+        <p>The <code>Forgot password?</code> link emails a secure reset — self-service, so no admin involvement needed for the common case of a forgotten password.</p>
+      </div>
+    </div>
+
+    <div class="foot">
+      <span>Nodrog Logistics · Fleet Maintenance — Login Flow Mockup</span>
+      <span>Individual-account sign-in (recommended) · Supabase Auth</span>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,322 @@
+// nm-screens-forms.jsx — IssueCard, Issues, NewIssue, Inventory, NewCheck, Reports
+const { useState: useStateF } = React;
+
+function IssueCard({ issue, truckPlate, compact }) {
+  const i = issue;
+  return (
+    <div style={{ ...cardStyle(), padding: 14, borderColor: i.oos ? C.crit : C.border, borderWidth: i.oos ? 1.5 : 1 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 800, color: C.fg, fontSize: 15, lineHeight: 1.3, marginBottom: 4, textWrap: "pretty" }}>
+            {i.serious && <Icon name="alert" size={15} color={C.crit} style={{ verticalAlign: "-2px", marginRight: 5 }} />}
+            {i.title}
+          </div>
+          <div style={{ fontSize: 12, color: C.mutedFg, lineHeight: 1.4 }}>{truckPlate ? truckPlate + " · " : ""}{i.by} · {fmtDate(i.date)}</div>
+        </div>
+        <Badge color={i.status === "open" ? C.danger : C.ok}>{i.status}</Badge>
+      </div>
+      {i.detail && <p style={{ fontSize: 13.5, color: C.fg, margin: "9px 0 0", lineHeight: 1.45 }}>{i.detail}</p>}
+      <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap", alignItems: "center" }}>
+        <Badge color={sevColor(i.severity)}>{i.severity}</Badge>
+        {i.oos && <Badge color={C.crit} solid><Icon name="ban" size={12} /> OUT OF SERVICE</Badge>}
+        {i.photos && i.photos.length > 0 && <Badge color={C.mutedFg}><Icon name="camera" size={12} /> {i.photos.length}</Badge>}
+      </div>
+      {i.serious && i.partsNeeded && (
+        <div style={{ marginTop: 10, padding: 10, borderRadius: 10, background: C.crit + "10", fontSize: 12.5 }}>
+          <span style={{ fontWeight: 800, color: C.crit }}>Needed to fix: </span>
+          <span style={{ color: C.fg }}>{i.partsNeeded}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Issues({ trucks, issues, go, canEdit }) {
+  const [filter, setFilter] = useStateF("open");
+  const plate = (id) => trucks.find((t) => t.id === id)?.plate || "—";
+  const list = issues.filter((i) => filter === "all" ? true : filter === "serious" ? (i.serious && i.status === "open") : i.status === filter);
+  return (
+    <div>
+      <Header title="Issues" sub={`${issues.filter((i) => i.status === "open").length} open`}
+        action={canEdit && <button onClick={() => go("newissue")} aria-label="New issue" style={{ minWidth: 42, minHeight: 42, borderRadius: 12, border: "none", background: C.accent, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><Icon name="plus" size={20} color="#fff" /></button>} />
+      <div style={{ padding: "0 16px", display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {[["open", "Open"], ["serious", "Serious"], ["resolved", "Resolved"], ["all", "All"]].map(([k, l]) => (
+            <Chip key={k} active={filter === k} onClick={() => setFilter(k)} small>{l}</Chip>
+          ))}
+        </div>
+        {list.length === 0 && <EmptyNote icon="checkc">Nothing here.</EmptyNote>}
+        {list.map((i) => <IssueCard key={i.id} issue={i} truckPlate={plate(i.truckId)} />)}
+        <div style={{ height: 8 }} />
+      </div>
+    </div>
+  );
+}
+
+function NewIssue({ trucks, preTruck, onSave, go }) {
+  const [truckId, setTruckId] = useStateF(preTruck || trucks[0].id);
+  const [title, setTitle] = useStateF("");
+  const [detail, setDetail] = useStateF("");
+  const [severity, setSeverity] = useStateF("medium");
+  const [serious, setSerious] = useStateF(false);
+  const [oos, setOos] = useStateF(false);
+  const [partsNeeded, setPartsNeeded] = useStateF("");
+  const sevs = ["low", "medium", "high", "critical"];
+  return (
+    <div>
+      <Header title="Log issue" onBack={() => go(preTruck ? "truck" : "issues", preTruck)} />
+      <div style={{ padding: "0 16px 20px" }}>
+        <Select label="Truck" value={truckId} onChange={(e) => setTruckId(e.target.value)}>
+          {trucks.map((t) => <option key={t.id} value={t.id}>{t.plate} — {t.model} ({window.FLEETS[t.fleet].name})</option>)}
+        </Select>
+        <Field label="What's the problem?" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Brake squeal front axle" />
+        <label style={{ display: "block", marginBottom: 14 }}>
+          <span style={{ display: "block", fontSize: 13, fontWeight: 700, marginBottom: 6, color: C.fg }}>Details</span>
+          <textarea value={detail} onChange={(e) => setDetail(e.target.value)} rows={3} placeholder="What you saw, heard, smelled…" style={{ width: "100%", borderRadius: 11, border: `1px solid ${C.border}`, padding: 12, fontSize: 16, boxSizing: "border-box", resize: "vertical", background: C.surface, color: C.fg, fontFamily: "inherit" }} />
+        </label>
+        <span style={{ display: "block", fontSize: 13, fontWeight: 700, marginBottom: 6, color: C.fg }}>Severity</span>
+        <div style={{ display: "flex", gap: 7, marginBottom: 16 }}>
+          {sevs.map((s) => (
+            <button key={s} onClick={() => { setSeverity(s); if (s === "critical") setSerious(true); }} style={{ flex: 1, minHeight: 46, borderRadius: 11, cursor: "pointer", fontWeight: 700, textTransform: "capitalize", fontSize: 13,
+              border: `1.5px solid ${severity === s ? sevColor(s) : C.border}`, background: severity === s ? sevColor(s) + "1A" : C.surface, color: severity === s ? sevColor(s) : C.mutedFg }}>{s}</button>
+          ))}
+        </div>
+
+        <span style={{ display: "block", fontSize: 13, fontWeight: 700, marginBottom: 6, color: C.fg }}>Photos</span>
+        <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+          <PhotoSlot /><PhotoSlot label="Add photo" />
+        </div>
+
+        <ToggleRow label="Serious issue" desc="Flag for supervisor — needs parts or major repair" value={serious} onChange={setSerious} color={C.warn} />
+        {serious && <>
+          <ToggleRow label="Take truck out of service" desc="Vehicle removed from duty until fixed" value={oos} onChange={setOos} color={C.crit} />
+          <Field label="What's needed to fix it?" value={partsNeeded} onChange={(e) => setPartsNeeded(e.target.value)} placeholder="e.g. Center bolt + U-bolt set" hint="Parts / labour required" />
+        </>}
+
+        <PrimaryBtn disabled={!title.trim()} color={oos ? C.crit : C.accent}
+          onClick={() => onSave({ truckId, title, detail, severity, serious, oos, partsNeeded })}>
+          <Icon name="check" size={18} /> {oos ? "Save & take out of service" : "Save issue"}
+        </PrimaryBtn>
+      </div>
+    </div>
+  );
+}
+
+function ToggleRow({ label, desc, value, onChange, color }) {
+  return (
+    <button onClick={() => onChange(!value)} style={{ ...rowStyle(), borderColor: value ? color : C.border, marginBottom: 14, alignItems: "center" }}>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontWeight: 700, color: value ? color : C.fg, fontSize: 14.5 }}>{label}</div>
+        <div style={{ fontSize: 12, color: C.mutedFg, marginTop: 2 }}>{desc}</div>
+      </div>
+      <div style={{ width: 46, height: 28, borderRadius: 999, background: value ? color : C.border, position: "relative", transition: "background .15s", flexShrink: 0 }}>
+        <div style={{ position: "absolute", top: 3, left: value ? 21 : 3, width: 22, height: 22, borderRadius: 999, background: "#fff", transition: "left .15s", boxShadow: "0 1px 3px rgba(0,0,0,.3)" }} />
+      </div>
+    </button>
+  );
+}
+
+function Inventory({ parts, multiFleet, fleetIds = ["IGL", "MASSY"], go, onAdjust, canEdit }) {
+  const [q, setQ] = useStateF("");
+  const [f, setF] = useStateF("ALL");
+  const list = parts.filter((p) => (f === "ALL" || p.fleet === f || p.fleet === "SHARED") && (p.name + p.sku).toLowerCase().includes(q.toLowerCase()));
+  const low = parts.filter((p) => p.qty <= p.min).length;
+  return (
+    <div>
+      <Header title="Inventory" sub={`${parts.length} parts · ${low} low`}
+        action={canEdit && <button onClick={() => go("newpart")} aria-label="New part" style={{ minWidth: 42, minHeight: 42, borderRadius: 12, border: "none", background: C.accent, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><Icon name="plus" size={20} color="#fff" /></button>} />
+      <div style={{ padding: "0 16px", display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ position: "relative" }}>
+          <span style={{ position: "absolute", left: 13, top: 13, color: C.mutedFg }}><Icon name="search" size={18} /></span>
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search parts or SKU" style={{ width: "100%", minHeight: 48, padding: "0 12px 0 40px", borderRadius: 11, border: `1px solid ${C.border}`, fontSize: 16, boxSizing: "border-box", background: C.surface, color: C.fg }} />
+        </div>
+        {multiFleet && (
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {["ALL", ...fleetIds].map((k) => <Chip key={k} active={f === k} onClick={() => setF(k)} small>{k === "ALL" ? "All" : (window.FLEETS[k]?.name || k)}</Chip>)}
+          </div>
+        )}
+        {list.map((p) => {
+          const isLow = p.qty <= p.min;
+          return (
+            <div key={p.id} style={{ ...cardStyle(), padding: 13, display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ width: 44, height: 44, borderRadius: 11, background: isLow ? C.danger + "18" : C.surface2, display: "flex", alignItems: "center", justifyContent: "center", color: isLow ? C.danger : C.accent }}>
+                <Icon name="pkg" size={21} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 800, fontSize: 14.5, color: C.fg }}>{p.name}</div>
+                <div style={{ fontSize: 12, color: C.mutedFg }}>{p.sku} · {p.location} · <FleetChip fleet={p.fleet} /></div>
+              </div>
+              <div style={{ textAlign: "right", minWidth: 54 }}>
+                <div style={{ fontWeight: 800, fontSize: 22, color: isLow ? C.danger : C.fg, lineHeight: 1 }}>{p.qty}</div>
+                {isLow ? <div style={{ fontSize: 10, color: C.danger, fontWeight: 800 }}>LOW · min {p.min}</div> : <div style={{ fontSize: 10.5, color: C.mutedFg }}>min {p.min}</div>}
+              </div>
+              {canEdit && <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <StepBtn onClick={() => onAdjust(p.id, 1)}>+</StepBtn>
+                <StepBtn onClick={() => onAdjust(p.id, -1)} disabled={p.qty <= 0}>−</StepBtn>
+              </div>}
+            </div>
+          );
+        })}
+        <div style={{ height: 8 }} />
+      </div>
+    </div>
+  );
+}
+const StepBtn = ({ children, ...p }) => (
+  <button {...p} style={{ width: 32, height: 32, borderRadius: 9, border: `1px solid ${C.border}`, background: C.surface, color: C.fg, fontSize: 18, fontWeight: 800, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", opacity: p.disabled ? .4 : 1 }}>{children}</button>
+);
+
+// ---- Weekly inspection sheet ----
+function NewCheck({ truck, onSave, go }) {
+  const [state, setState] = useStateF({});      // key -> "ok" | "attn"
+  const [noteState, setNoteState] = useStateF({}); // key -> note text
+  const [openNote, setOpenNote] = useStateF({});   // key -> bool
+  const [notes, setNotes] = useStateF("");
+  const [missing, setMissing] = useStateF("");
+  const set = (k, v) => setState((s) => ({ ...s, [k]: s[k] === v ? undefined : v }));
+  const setNote = (k, v) => setNoteState((s) => ({ ...s, [k]: v }));
+  const toggleNote = (k) => setOpenNote((s) => ({ ...s, [k]: !s[k] }));
+
+  const allKeys = [];
+  window.INSPECT_SINGLE.forEach((s) => allKeys.push(s));
+  window.INSPECT_POSITIONS.forEach((p) => window.INSPECT_POSITION_CATS.forEach((c) => allKeys.push(p + " · " + c)));
+  window.INSPECT_FLUIDS.forEach((s) => allKeys.push("Fluid · " + s));
+  window.INSPECT_DRIVETRAIN.forEach((s) => allKeys.push(s));
+  const done = Object.values(state).filter(Boolean).length;
+  const attn = Object.values(state).filter((v) => v === "attn").length;
+  const pct = Math.round((done / allKeys.length) * 100);
+
+  // rendered as a function (NOT a nested component) so the note textarea keeps focus while typing
+  const renderItem = (k, label) => {
+    const v = state[k];
+    const hasNote = !!(noteState[k] && noteState[k].trim());
+    const open = !!openNote[k];
+    return (
+      <div key={k} style={{ padding: "8px 0", borderBottom: `1px solid ${C.border}` }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ flex: 1, fontSize: 13.5, color: C.fg, fontWeight: 600 }}>{label}</span>
+          <button onClick={() => toggleNote(k)} aria-label="Note" style={{ ...triBtn(open || hasNote, C.accent), width: 34, height: 34 }}>
+            <Icon name="edit" size={14} color={(open || hasNote) ? "#fff" : C.mutedFg} />
+          </button>
+          <button onClick={() => set(k, "ok")} aria-label="OK" style={triBtn(v === "ok", C.ok)}><Icon name="check" size={16} color={v === "ok" ? "#fff" : C.mutedFg} /></button>
+          <button onClick={() => set(k, "attn")} aria-label="Needs attention" style={triBtn(v === "attn", C.danger)}><Icon name="alert" size={15} color={v === "attn" ? "#fff" : C.mutedFg} /></button>
+        </div>
+        {open && (
+          <textarea autoFocus value={noteState[k] || ""} onChange={(e) => setNote(k, e.target.value)} rows={2}
+            placeholder={`Note for ${label}…`}
+            style={{ width: "100%", marginTop: 8, borderRadius: 10, border: `1px solid ${C.border}`, padding: 10, fontSize: 15, boxSizing: "border-box", resize: "vertical", background: C.surface2, color: C.fg, fontFamily: "inherit" }} />
+        )}
+        {!open && hasNote && (
+          <div onClick={() => toggleNote(k)} style={{ marginTop: 6, fontSize: 12, color: C.mutedFg, display: "flex", gap: 6, cursor: "pointer" }}>
+            <Icon name="edit" size={12} color={C.accent} style={{ flexShrink: 0, marginTop: 1 }} /> <span>{noteState[k]}</span>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div>
+      <Header title="Weekly check" sub={`${truck.plate} · ${truck.model}`} onBack={() => go("truck", truck.id)} />
+      <div style={{ padding: "0 16px 20px" }}>
+        {/* progress */}
+        <div style={{ ...cardStyle(), padding: 14, marginBottom: 14, position: "sticky", top: 0, zIndex: 5 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 6 }}>
+            <span style={{ fontWeight: 700, color: C.fg }}>{done}/{allKeys.length} checked</span>
+            <span style={{ color: attn ? C.danger : C.mutedFg, fontWeight: 700 }}>{attn ? `${attn} need attention` : "All good"}</span>
+          </div>
+          <div style={{ height: 8, borderRadius: 999, background: C.surface2, overflow: "hidden" }}>
+            <div style={{ width: pct + "%", height: "100%", background: C.accent }} />
+          </div>
+          <div style={{ fontSize: 11, color: C.mutedFg, marginTop: 8, display: "flex", gap: 14, flexWrap: "wrap" }}>
+            <span><Icon name="check" size={12} style={{ verticalAlign: "-1px" }} /> tap = OK</span>
+            <span><Icon name="alert" size={11} style={{ verticalAlign: "-1px" }} /> tap = needs attention</span>
+            <span><Icon name="edit" size={11} style={{ verticalAlign: "-1px" }} /> add a note</span>
+          </div>
+        </div>
+
+        <SectionTitle>Steering &amp; drivetrain</SectionTitle>
+        <div style={{ ...cardStyle(), padding: "4px 14px" }}>
+          {window.INSPECT_SINGLE.map((s) => renderItem(s, s))}
+          {window.INSPECT_DRIVETRAIN.map((s) => renderItem(s, s))}
+        </div>
+
+        <SectionTitle>Fluids</SectionTitle>
+        <div style={{ ...cardStyle(), padding: "4px 14px" }}>
+          {window.INSPECT_FLUIDS.map((s) => renderItem("Fluid · " + s, s))}
+        </div>
+
+        {window.INSPECT_POSITIONS.map((pos) => (
+          <React.Fragment key={pos}>
+            <SectionTitle>{pos}</SectionTitle>
+            <div style={{ ...cardStyle(), padding: "4px 14px" }}>
+              {window.INSPECT_POSITION_CATS.map((c) => renderItem(pos + " · " + c, c))}
+            </div>
+          </React.Fragment>
+        ))}
+
+        <SectionTitle>Missing items</SectionTitle>
+        <Field value={missing} onChange={(e) => setMissing(e.target.value)} placeholder="e.g. wheel chock, jack handle…" />
+
+        <SectionTitle>Photos &amp; video</SectionTitle>
+        <div style={{ display: "flex", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
+          <MediaSlot kind="photo" /><MediaSlot kind="photo" /><MediaSlot kind="video" />
+        </div>
+
+        <SectionTitle>General comments</SectionTitle>
+        <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} placeholder="Anything to flag for the supervisor…" style={{ width: "100%", borderRadius: 11, border: `1px solid ${C.border}`, padding: 12, fontSize: 16, boxSizing: "border-box", resize: "vertical", marginBottom: 16, background: C.surface, color: C.fg, fontFamily: "inherit" }} />
+
+        <PrimaryBtn onClick={() => onSave(truck.id, { attn, results: state, notes: noteState, general: notes, missing })} color={attn ? C.warn : C.accent}>
+          <Icon name="checkc" size={18} /> {attn ? `Complete check (${attn} flagged)` : "Complete check"}
+        </PrimaryBtn>
+      </div>
+    </div>
+  );
+}
+const triBtn = (active, color) => ({
+  width: 38, height: 38, borderRadius: 10, cursor: "pointer", flexShrink: 0,
+  display: "flex", alignItems: "center", justifyContent: "center",
+  border: `1.5px solid ${active ? color : C.border}`, background: active ? color : C.surface,
+});
+
+function Reports({ trucks, issues, parts, fleet, go }) {
+  const open = issues.filter((i) => i.status === "open").length;
+  const serious = issues.filter((i) => i.status === "open" && i.serious).length;
+  const oos = trucks.filter((t) => t.status === "oos").length;
+  const due = trucks.filter((t) => t.status === "due" || t.status === "overdue").length;
+  const low = parts.filter((p) => p.qty <= p.min);
+  const Stat = ({ v, l, c }) => (
+    <div style={{ ...cardStyle(), padding: 14, flex: 1 }}>
+      <div style={{ fontSize: 28, fontWeight: 800, color: c, lineHeight: 1 }}>{v}</div>
+      <div style={{ fontSize: 12, color: C.mutedFg, marginTop: 5 }}>{l}</div>
+    </div>
+  );
+  const Export = ({ icon, title, desc }) => (
+    <button onClick={() => alert("Demo: this would generate a " + title + ".")} style={{ ...rowStyle() }}>
+      <div style={{ width: 42, height: 42, borderRadius: 11, background: C.surface2, display: "flex", alignItems: "center", justifyContent: "center", color: C.accent }}><Icon name={icon} size={20} /></div>
+      <div style={{ flex: 1 }}><div style={{ fontWeight: 700, fontSize: 14.5 }}>{title}</div><div style={{ fontSize: 12, color: C.mutedFg }}>{desc}</div></div>
+      <Icon name="chevron" size={18} color={C.mutedFg} />
+    </button>
+  );
+  return (
+    <div>
+      <Header title="Reports" sub={fleet === "ALL" ? "All fleets" : window.FLEETS[fleet].full} />
+      <div style={{ padding: "0 16px", display: "flex", flexDirection: "column", gap: 12 }}>
+        <SectionTitle>This week</SectionTitle>
+        <div style={{ display: "flex", gap: 10 }}><Stat v={due} l="Checks due" c={C.warn} /><Stat v={open} l="Open issues" c={C.danger} /></div>
+        <div style={{ display: "flex", gap: 10 }}><Stat v={oos} l="Out of service" c={C.crit} /><Stat v={low.length} l="Low stock" c={C.warn} /></div>
+        <SectionTitle>Export</SectionTitle>
+        <Export icon="file" title="Weekly summary (PDF)" desc="Checks, issues & OOS for the week" />
+        <Export icon="list" title="Inventory (spreadsheet)" desc="Stock levels & re-order list" />
+        <Export icon="truck" title="Fleet register (spreadsheet)" desc="All vehicles, certs & service dates" />
+        {serious > 0 && <div style={{ ...cardStyle(), borderColor: C.crit, background: C.crit + "10", padding: 14, display: "flex", gap: 10, alignItems: "center" }}>
+          <Icon name="alert" size={20} color={C.crit} />
+          <div style={{ fontSize: 13.5, color: C.fg }}><b style={{ color: C.crit }}>{serious} serious issue{serious > 1 ? "s" : ""}</b> flagged this week.</div>
+        </div>}
+        <div style={{ height: 8 }} />
+      </div>
+    </div>
+  );
+}
+
+Object.assign(window, { IssueCard, Issues, NewIssue, Inventory, NewCheck, Reports, ToggleRow });

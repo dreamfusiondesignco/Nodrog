@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Nodrog Maintenance — Build &amp; Host Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --navy: #0E2236; --blue: #1E63D6; --orange: #F4842B;
+    --ink: #14202C; --muted: #5C6B7E; --line: #E1E7EE; --bg: #F4F6F9;
+    --ok: #1B9255; --warn: #D98214; --crit: #B11E1E;
+    --sans: 'Plus Jakarta Sans', system-ui, sans-serif;
+    --serif: 'Source Serif 4', Georgia, serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); -webkit-font-smoothing: antialiased; }
+  body { font-family: var(--serif); font-size: 16px; line-height: 1.62; }
+  .page { max-width: 840px; margin: 0 auto; background: #fff; }
+  .pad { padding: 56px 64px; }
+  h1, h2, h3, h4, .sans { font-family: var(--sans); }
+  h2 { font-size: 25px; font-weight: 800; letter-spacing: -.01em; margin: 0 0 4px; color: var(--navy); }
+  h3 { font-size: 18px; font-weight: 800; margin: 28px 0 8px; color: var(--ink); }
+  h4 { font-size: 14.5px; font-weight: 800; margin: 18px 0 6px; color: var(--navy); }
+  p { margin: 0 0 13px; }
+  a { color: var(--blue); }
+  .lead { font-size: 18px; color: #33414f; }
+  .eyebrow { font-family: var(--sans); font-size: 12px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: var(--orange); margin-bottom: 10px; }
+  .muted { color: var(--muted); }
+  .sectnum { font-family: var(--sans); font-size: 13px; font-weight: 800; color: var(--blue); letter-spacing: .04em; }
+  hr { border: none; border-top: 1px solid var(--line); margin: 40px 0; }
+  ul, ol { margin: 0 0 14px; padding-left: 22px; }
+  li { margin-bottom: 7px; }
+  code { font-family: ui-monospace, Menlo, monospace; font-size: 13.5px; background: #EEF2F7; padding: 1px 6px; border-radius: 5px; color: #243B53; }
+  .callout { border-left: 3px solid var(--orange); background: #FFF7EF; padding: 14px 18px; border-radius: 0 10px 10px 0; margin: 16px 0; font-size: 15px; }
+  .callout.blue { border-color: var(--blue); background: #F0F5FE; }
+  .callout.crit { border-color: var(--crit); background: #FDF1F1; }
+  .callout b { font-family: var(--sans); }
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-family: var(--sans); font-size: 13.5px; }
+  th, td { text-align: left; padding: 11px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: var(--navy); color: #fff; font-weight: 700; font-size: 12.5px; }
+  th:first-child { border-radius: 8px 0 0 0; } th:last-child { border-radius: 0 8px 0 0; }
+  tr:nth-child(even) td { background: #FAFBFD; }
+  .tag { display: inline-block; font-family: var(--sans); font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 999px; }
+  .tag.ok { background: #E5F4EC; color: var(--ok); } .tag.warn { background: #FBF0DD; color: var(--warn); } .tag.crit { background: #FBE7E7; color: var(--crit); }
+  .rec { display: inline-flex; align-items: center; gap: 6px; font-family: var(--sans); font-weight: 800; font-size: 11.5px; color: #fff; background: var(--ok); padding: 3px 10px; border-radius: 999px; letter-spacing: .03em; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0; }
+  .card { border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; }
+  .card h4 { margin-top: 0; }
+  .step { display: flex; gap: 16px; margin: 0 0 18px; }
+  .step .n { flex-shrink: 0; width: 34px; height: 34px; border-radius: 999px; background: var(--navy); color: #fff; font-family: var(--sans); font-weight: 800; display: flex; align-items: center; justify-content: center; font-size: 15px; }
+  .step .b { flex: 1; }
+  .step .b h4 { margin: 4px 0 5px; }
+  .check { list-style: none; padding: 0; }
+  .check li { padding-left: 30px; position: relative; }
+  .check li::before { content: "☐"; position: absolute; left: 0; font-size: 18px; color: var(--blue); }
+  .cover { background: linear-gradient(160deg, var(--navy), #0A1B2B 70%); color: #fff; padding: 64px; }
+  .cover .eyebrow { color: var(--orange); }
+  .cover h1 { font-size: 40px; font-weight: 800; letter-spacing: -.02em; line-height: 1.05; margin: 0 0 16px; }
+  .cover p { color: #B7C6D6; font-size: 17px; max-width: 560px; }
+  .logo { display: flex; align-items: center; gap: 12px; margin-bottom: 40px; }
+  .logo .mark { width: 44px; height: 44px; border-radius: 11px; background: var(--orange); transform: rotate(45deg); }
+  .logo .name { font-family: var(--sans); font-weight: 900; font-size: 21px; letter-spacing: -.01em; }
+  .logo .sub { font-family: var(--sans); font-weight: 700; font-size: 10px; letter-spacing: .24em; color: #8FA3B8; margin-top: 3px; }
+  .footer { font-family: var(--sans); font-size: 12px; color: var(--muted); padding: 22px 64px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; }
+  .toc { columns: 2; column-gap: 36px; font-family: var(--sans); font-size: 14px; }
+  .toc a { display: block; text-decoration: none; color: var(--ink); padding: 6px 0; border-bottom: 1px solid var(--line); }
+  .toc a span { color: var(--blue); font-weight: 800; margin-right: 8px; }
+  @media print {
+    body { background: #fff; font-size: 12pt; }
+    .page { max-width: none; }
+    .pad { padding: 28px 0; }
+    .cover { padding: 40px 0; }
+    .footer { padding: 16px 0; }
+    h2, h3 { break-after: avoid; }
+    .card, table, .callout, .step { break-inside: avoid; }
+  }
+  @media (max-width: 720px) {
+    .pad, .cover, .footer { padding-left: 22px; padding-right: 22px; }
+    .grid2, .toc { grid-template-columns: 1fr; columns: 1; }
+    .cover h1 { font-size: 30px; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- COVER -->
+  <div class="cover">
+    <div class="logo">
+      <img src="assets/nodrog-mark-light.svg" alt="" style="height:46px;width:auto;margin-right:2px">
+      <div><div class="name">NODROG</div><div class="sub">LOGISTICS</div></div>
+    </div>
+    <div class="eyebrow">Fleet Maintenance · Implementation Guide</div>
+    <h1>How &amp; where to build<br>your maintenance app</h1>
+    <p>A practical, plain-English plan to turn the prototype into a real app your IGL &amp; Massy crews can log into — what to use, what it costs, and the steps to launch.</p>
+  </div>
+
+  <div class="pad">
+    <div class="eyebrow">Contents</div>
+    <div class="toc">
+      <a href="#have"><span>01</span>What you have today</a>
+      <a href="#decision"><span>02</span>The decision: 3 routes</a>
+      <a href="#recommend"><span>03</span>Our recommendation</a>
+      <a href="#data"><span>04</span>Your data model</a>
+      <a href="#access"><span>05</span>Logins &amp; permissions</a>
+      <a href="#steps"><span>06</span>Step-by-step to launch</a>
+      <a href="#phone"><span>07</span>Installing on phones</a>
+      <a href="#extras"><span>08</span>Photos, reports, reminders</a>
+      <a href="#cost"><span>09</span>What it will cost</a>
+      <a href="#security"><span>10</span>Security &amp; backups</a>
+      <a href="#next"><span>11</span>Next steps checklist</a>
+    </div>
+
+    <hr>
+
+    <!-- 1 -->
+    <h2 id="have"><span class="sectnum">01</span> &nbsp;What you have today</h2>
+    <p class="lead">A working, clickable prototype of the whole app — on a real phone screen.</p>
+    <p>The <b>Nodrog Maintenance</b> file is a high-fidelity prototype. It looks and behaves like the finished product: you can sign in as different staff, switch between the IGL and Massy fleets, run a weekly inspection, log a fault, flag a truck out of service, and adjust stock. It’s the fastest way to test the idea with your team and agree on exactly what you want before spending money on a backend.</p>
+    <div class="callout"><b>What it is &amp; isn’t.</b> The prototype stores changes only in the browser on <i>that</i> phone — there is no shared database yet, so two people don’t see each other’s updates, and logins are demo-only. That shared “brain” is what the steps in this guide add. Everything you see in the prototype carries over; we’re plugging in the plumbing behind it.</p>
+
+    <hr>
+
+    <!-- 2 -->
+    <h2 id="decision"><span class="sectnum">02</span> &nbsp;The decision: three routes</h2>
+    <p>Because you want a <b>web app</b> people install from a link (no app store), used by a <b>small team</b>, with <b>separate IGL / Massy access</b> and admin control, there are three sensible ways to get there:</p>
+
+    <table>
+      <thead><tr><th style="width:22%">Route</th><th>Best when…</th><th style="width:18%">Effort</th><th style="width:20%">Ballpark cost</th></tr></thead>
+      <tbody>
+        <tr><td><b>A · No-code</b><br><span class="muted">Glide</span></td><td>You want something live this week and are happy to rebuild the screens by dragging blocks. Trades design control for speed.</td><td><span class="tag warn">Low</span></td><td>≈ $25–$249 / mo<br><span class="muted">tier depends on logins</span></td></tr>
+        <tr><td><b>B · This prototype + a backend</b> <span class="rec">RECOMMENDED</span><br><span class="muted">React + Supabase</span></td><td>You want to keep this exact look &amp; feel, get real logins, a shared database, photos and offline — at a small-team price.</td><td><span class="tag warn">Medium</span></td><td>$0 to start,<br>≈ $25 / mo in production</td></tr>
+        <tr><td><b>C · Full custom</b><br><span class="muted">Hire a developer</span></td><td>This becomes business-critical, needs app-store apps, or deep integration with other Nodrog systems later.</td><td><span class="tag crit">High</span></td><td>One-off build fee<br>+ hosting</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout blue"><b>Short version:</b> Start on <b>Route B</b>. It keeps the prototype you already like, costs nothing until you go live, and the same code can grow into Route C if Nodrog ever needs it. Use Route A only if you need it running before a developer can help.</div>
+
+    <hr>
+
+    <!-- 3 -->
+    <h2 id="recommend"><span class="sectnum">03</span> &nbsp;Our recommendation — React + Supabase</h2>
+    <p>Pair the prototype’s front-end with <b>Supabase</b> as the backend. Supabase is an “app database in a box”: it gives you a real database, user logins, file storage for photos, and security rules — all in one place, with a generous free tier.</p>
+
+    <div class="grid2">
+      <div class="card"><h4>Why Supabase fits Nodrog</h4>
+        <ul>
+          <li>Real <b>email + PIN/password logins</b> out of the box.</li>
+          <li><b>Row-level security</b> — the exact tool to keep IGL and Massy data separate while letting admins &amp; lead mechanics see both.</li>
+          <li><b>Photo storage</b> for issue and inspection pictures.</li>
+          <li>Predictable pricing and you own/export your data anytime.</li>
+        </ul>
+      </div>
+      <div class="card"><h4>Where it’s hosted</h4>
+        <ul>
+          <li>The app screens (this prototype) deploy free on <b>Vercel</b> or <b>Netlify</b> — both give you a web address and HTTPS automatically.</li>
+          <li>The database lives on Supabase’s cloud.</li>
+          <li>Staff open the link once and tap <b>“Add to Home Screen”</b> — it then behaves like an installed app.</li>
+        </ul>
+      </div>
+    </div>
+    <p class="muted" style="font-size:14px">Firebase (Google) is a fair alternative to Supabase. We suggest Supabase because its security rules map cleanly onto the IGL/Massy split and its pricing is more predictable for a small team.</p>
+
+    <hr>
+
+    <!-- 4 -->
+    <h2 id="data"><span class="sectnum">04</span> &nbsp;Your data model</h2>
+    <p>These are the “tables” (think labelled spreadsheets) the app needs. They mirror your paper forms and the prototype exactly.</p>
+    <table>
+      <thead><tr><th style="width:22%">Table</th><th>Holds</th></tr></thead>
+      <tbody>
+        <tr><td><b>users</b></td><td>Name, email, role (mechanic / lead / admin), and which fleets they may see (IGL, Massy, or both).</td></tr>
+        <tr><td><b>trucks</b></td><td>Plate, fleet, model, chassis, capacity, segment, driver, location, odometer, idle hours, status, last-check date — plus cert expiries (insurance, fitness, MV reg, carrier licence, fire extinguisher).</td></tr>
+        <tr><td><b>service_records</b></td><td>Per truck: last miles &amp; idle-hours and date for engine, transmission, air filter, front &amp; rear diff, and the next-due miles / hours.</td></tr>
+        <tr><td><b>inspections</b></td><td>One weekly check: truck, date, who did it, an OK / needs-attention result and an <b>optional note for every line</b> on the sheet, plus general comments, missing items and photo/video attachments. Kept as history so admins can <b>review previous weekly reports</b>.</td></tr>
+        <tr><td><b>issues</b></td><td>Truck, title, detail, severity, status, <b>photos &amp; video</b>, “serious” flag, “out of service” flag, and what’s needed to fix it.</td></tr>
+        <tr><td><b>parts</b></td><td>Name, SKU, quantity, minimum level, location, fleet (or shared). Admins create new items in-app.</td></tr>
+        <tr><td><b>part_usage</b></td><td>Which part, how many, fitted to which truck, when and by whom.</td></tr>
+        <tr><td><b>fleets</b></td><td>Id, short name, full name. Admins add fleets in-app; everything else references them.</td></tr>
+        <tr><td><b>invoices</b></td><td>Number, fleet, optional truck, party, type (payable/receivable), dates, status, line items (description × qty × unit price) and notes. Admin-created.</td></tr>
+      </tbody>
+    </table>
+    <div class="callout"><b>Tip:</b> If you already keep this in Excel/Google Sheets, that becomes your first import — Supabase (and Glide) can both load a spreadsheet to seed these tables on day one.</div>
+
+    <hr>
+
+    <!-- 5 -->
+    <h2 id="access"><span class="sectnum">05</span> &nbsp;Logins &amp; permissions</h2>
+    <p>You asked for separate IGL and Massy access, with lead mechanics and admins seeing both. Here’s the simple rule set to set up:</p>
+    <table>
+      <thead><tr><th style="width:26%">Role</th><th>Can see</th><th>Can do</th></tr></thead>
+      <tbody>
+        <tr><td><b>Admin</b> (Nodrog)</td><td>All fleets</td><td>Everything — add fleets, trucks &amp; staff, create invoices, add parts, edit any record, export reports.</td></tr>
+        <tr><td><b>Lead mechanic</b></td><td>All fleets</td><td>Run checks, log issues &amp; video, take trucks out of service, adjust stock.</td></tr>
+        <tr><td><b>Mechanic — IGL</b></td><td>IGL only</td><td>Run checks &amp; log issues on IGL trucks; view IGL stock.</td></tr>
+        <tr><td><b>Mechanic — Massy</b></td><td>Massy only</td><td>Same, for Massy trucks.</td></tr>
+      </tbody>
+    </table>
+    <p>In Supabase this is enforced by <b>row-level security</b>: each truck/issue/part/invoice row is tagged with its fleet, and a rule says “only return rows whose fleet is in this user’s allowed list.” It’s impossible for a Massy-only login to pull IGL data, even by accident — the database itself refuses. Admin and lead-mechanic accounts are given an <code>all-fleets</code> flag, so newly-created fleets appear for them automatically.</p>
+
+    <h3>How your team logs in</h3>
+    <p>Logins are handled by <b>Supabase Auth</b> — you don’t build or store passwords yourself. The flow your crew sees (shown in the <b>Login Flow mockup</b> alongside this guide) is:</p>
+    <div class="step"><div class="n">1</div><div class="b"><h4>Open the app link</h4><p>The crew taps the home-screen icon (or the shared web link). If they signed in before and chose “stay signed in”, they skip straight to the dashboard.</p></div></div>
+    <div class="step"><div class="n">2</div><div class="b"><h4>Enter work email + password</h4><p>Each person has their own account (e.g. <code>marlon@nodrog.com</code>). First-time users get an invite email and set their own password; a 4-digit PIN/biometric can be added for fast re-entry on a shared yard phone.</p></div></div>
+    <div class="step"><div class="n">3</div><div class="b"><h4>Supabase verifies &amp; loads their fleets</h4><p>On success Supabase issues a secure session token and returns only the data their role allows. Wrong password shows a clear error; “Forgot password” emails a reset link.</p></div></div>
+    <div class="step"><div class="n">4</div><div class="b"><h4>They land on their dashboard</h4><p>An IGL mechanic sees only IGL; an admin sees the fleet switcher and the admin tools (invoices, fleets, add-part).</p></div></div>
+    <h4>Adding &amp; removing people</h4>
+    <p>From the Supabase dashboard (or an in-app admin screen later) you <b>invite</b> a user by email, pick their role and fleet(s), and they’re live. <b>Deactivate</b> someone the day they leave and their access ends immediately — no shared password to change. Because identity is per-person, every weekly check, issue and invoice is stamped with who did it.</p>
+    <div class="callout blue"><b>Two sign-in styles, your call.</b> <b>Individual accounts</b> (recommended) give a clean audit trail and easy off-boarding. If a single phone is shared in the garage, you can instead use one <b>shared device login</b> plus a per-person PIN on top — less precise, but quick. The mockup shows the individual-account flow.</div>
+
+    <hr>
+
+    <!-- 6 -->
+    <h2 id="steps"><span class="sectnum">06</span> &nbsp;Step-by-step to launch (Route B)</h2>
+    <p>A realistic order of operations. A comfortable-with-tech person can do 1–6; a developer (or an AI coding assistant) speeds up 4–5.</p>
+
+    <div class="step"><div class="n">1</div><div class="b"><h4>Create a free Supabase project</h4><p>Sign up at supabase.com, create a project, and choose a region near Jamaica (US East). Note the project URL and API key.</p></div></div>
+    <div class="step"><div class="n">2</div><div class="b"><h4>Build the tables</h4><p>Create the tables from section 4. Easiest start: import your existing spreadsheet, then tidy the columns. Add a <code>fleet</code> column to trucks, issues and parts.</p></div></div>
+    <div class="step"><div class="n">3</div><div class="b"><h4>Turn on logins &amp; add your staff</h4><p>Enable email logins (Supabase Auth), then invite each crew member with their role and allowed fleets. They set their own password from the invite email — see section 5 and the Login Flow mockup.</p></div></div>
+    <div class="step"><div class="n">4</div><div class="b"><h4>Set the security rules</h4><p>Add the row-level-security policies from section 5 so each login only sees what it should. Test by signing in as a Massy mechanic and confirming no IGL trucks appear.</p></div></div>
+    <div class="step"><div class="n">5</div><div class="b"><h4>Connect the prototype to the database</h4><p>Swap the prototype’s built-in sample data for live Supabase calls (read trucks, save a check, log an issue, upload a photo). The screens stay exactly as designed.</p></div></div>
+    <div class="step"><div class="n">6</div><div class="b"><h4>Publish &amp; share the link</h4><p>Deploy the app free to Vercel or Netlify. Send the crew the web link; each person opens it and taps <b>Add to Home Screen</b>.</p></div></div>
+
+    <div class="callout blue"><b>Using an AI coding assistant?</b> Steps 4–5 are exactly the kind of work tools like this one (or Cursor / Lovable) do well. Hand over this guide plus the prototype files and ask it to “wire these screens to Supabase with row-level security by fleet.”</div>
+
+    <hr>
+
+    <!-- 7 -->
+    <h2 id="phone"><span class="sectnum">07</span> &nbsp;Installing on phones (no app store)</h2>
+    <p>The app is a <b>Progressive Web App (PWA)</b> — a website that installs like an app. To install: open the link in Safari (iPhone) or Chrome (Android), tap the share/menu button, then <b>Add to Home Screen</b>. It gets an icon, opens full-screen, and there’s nothing to approve in an app store.</p>
+    <div class="grid2">
+      <div class="card"><h4>Works offline (recommended)</h4><p>We recommend enabling offline support so a mechanic in a low-signal garage can still open the app and complete a check; it syncs automatically when signal returns. This is a standard PWA feature worth turning on for Nodrog’s yards.</p></div>
+      <div class="card"><h4>Why not the app store?</h4><p>App-store apps mean Apple/Google review, yearly developer fees, and slower updates — overkill for an internal tool used by a handful of staff. A PWA gives you the “installed app” feel without any of that. (Route C can add store apps later if needed.)</p></div>
+    </div>
+
+    <hr>
+
+    <!-- 8 -->
+    <h2 id="extras"><span class="sectnum">08</span> &nbsp;Photos, reports &amp; reminders</h2>
+    <h4>Photos &amp; video</h4>
+    <p>The camera buttons on issues and weekly checks upload photos <b>and short videos</b> straight to Supabase Storage and attach to that record — handy for showing a supervisor the broken center bolt, or a clip of the gas leak while idling. Video files are larger, so set a sensible size cap and let them upload on Wi-Fi / return-to-signal if offline.</p>
+    <h4>Reports &amp; export</h4>
+    <p>The Reports screen generates a weekly summary (checks, open issues, out-of-service trucks) and exports inventory and the fleet register to a spreadsheet or PDF. These run off the same live data, so they’re always current.</p>
+    <h4>Reminders</h4>
+    <p>The dashboard already flags certs expiring within 30 days and trucks approaching their service miles/hours. To push these as phone notifications or a weekly email digest, add a small scheduled job in Supabase — a good “phase 2” enhancement.</p>
+
+    <hr>
+
+    <!-- 9 -->
+    <h2 id="cost"><span class="sectnum">09</span> &nbsp;What it will cost</h2>
+    <p>For a team of 1–10, the recommended route is essentially free to start and inexpensive in production. Figures are indicative for mid-2026 — always check the providers’ current pricing pages.</p>
+    <table>
+      <thead><tr><th>Item</th><th style="width:24%">Free to start?</th><th style="width:30%">In production</th></tr></thead>
+      <tbody>
+        <tr><td><b>Supabase</b> (database, logins, photos)</td><td><span class="tag ok">Yes</span> free tier</td><td>≈ <b>$25 / mo</b> (Pro) once live*</td></tr>
+        <tr><td><b>Vercel / Netlify</b> (hosting the app)</td><td><span class="tag ok">Yes</span> free tier</td><td>$0 for an internal app this size</td></tr>
+        <tr><td><b>Custom web address</b> (optional)</td><td>—</td><td>≈ $10–15 / year</td></tr>
+        <tr><td colspan="3" style="background:#FFF7EF"><b>Route B total:</b> &nbsp; $0 while building &amp; testing &nbsp;→&nbsp; about <b>$25–30 / month</b> once in daily production use.</td></tr>
+      </tbody>
+    </table>
+    <p class="muted" style="font-size:13.5px">*The Supabase free tier pauses a project after ~7 days of no activity and has no automatic backups — fine for building and trials, but move to the $25/mo Pro plan before the crew relies on it daily, mainly for 24/7 uptime and daily backups.</p>
+    <h4>If you choose Route A (Glide) instead</h4>
+    <p>Glide has a free tier for trying it out. For a real internal tool where staff sign in with company (work-domain) emails and you need role permissions, you’ll be on a paid plan — roughly <b>$25–60/mo</b> for personal-email logins, or the <b>Business plan (~$199–249/mo, ~30 users included)</b> if staff sign in with <code>@nodrog</code> work emails. Faster to stand up, but less design control and higher monthly cost at the level you need.</p>
+
+    <hr>
+
+    <!-- 10 -->
+    <h2 id="security"><span class="sectnum">10</span> &nbsp;Security, backups &amp; data ownership</h2>
+    <ul>
+      <li><b>Logins:</b> every user has their own account; deactivate someone the day they leave.</li>
+      <li><b>Separation:</b> row-level security keeps IGL and Massy data apart at the database level.</li>
+      <li><b>Backups:</b> the Supabase Pro plan includes daily backups; you can also export everything to spreadsheet anytime — your data is never locked in.</li>
+      <li><b>Transport:</b> hosting on Vercel/Netlify is HTTPS-encrypted by default.</li>
+      <li><b>Audit:</b> records store who logged each check/issue and when, so there’s a clear trail.</li>
+    </ul>
+
+    <hr>
+
+    <!-- 11 -->
+    <h2 id="next"><span class="sectnum">11</span> &nbsp;Next steps checklist</h2>
+    <ul class="check">
+      <li>Test the prototype with 1–2 mechanics; note anything missing on the inspection sheet or truck fields.</li>
+      <li>Decide Route B (recommended) vs Route A, and who does the wiring (in-house, a developer, or an AI assistant).</li>
+      <li>Gather your real data: full truck list, current stock, and your exact weekly checklist.</li>
+      <li>Create the free Supabase project and import that data.</li>
+      <li>Add staff accounts with roles &amp; fleet access; set the security rules.</li>
+      <li>Connect the screens, publish the link, and have the crew Add to Home Screen.</li>
+      <li>Run one real week on it, then upgrade to the paid plan for daily use.</li>
+    </ul>
+    <div class="callout"><b>Want help with the build?</b> Share this guide and the prototype files with whoever does the wiring. The data model, permissions and steps above are written to be handed straight over.</div>
+  </div>
+
+  <div class="footer">
+    <span>Nodrog Logistics · Fleet Maintenance — Build &amp; Host Guide</span>
+    <span>Prepared June 2026 · verify provider pricing before purchase</span>
+  </div>
+</div>
+</body>
+</html>
