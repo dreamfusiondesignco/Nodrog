@@ -44,6 +44,9 @@ const PATHS = {
   pin:    "M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11zM12 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z",
   drop:   "M12 3c3.5 4.5 6 7.5 6 11a6 6 0 1 1-12 0c0-3.5 2.5-6.5 6-11z",
   list:   "M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01",
+  eye:    "M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z",
+  eyeoff: "M3 3l18 18M10.6 10.6a3 3 0 0 0 4.2 4.2M9.9 5.2A9.6 9.6 0 0 1 12 5c6.4 0 10 7 10 7a18 18 0 0 1-3.1 3.9M6.2 6.2A18 18 0 0 0 2 12s3.6 7 10 7a9.6 9.6 0 0 0 3-.5",
+  share:  "M12 3v13M12 3l-4 4M12 3l4 4M5 12v7a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-7",
   video:  "M3 7h12v10H3zM15 10.5 21 7v10l-6-3.5z",
   receipt:"M6 3h12v18l-2.5-1.6L13 21l-2.5-1.6L8 21l-2.5-1.6L6 21zM9 8h6M9 12h6M9 16h3",
   layers: "M12 3 21 8l-9 5-9-5zM3 13l9 5 9-5M3 17l9 5 9-5",
@@ -316,3 +319,74 @@ export function PhoneFrame({ children, brandFont }) {
     </div>
   );
 }
+
+// Install / Add-to-Home-Screen prompt. Detects platform, shows the right steps,
+// uses the native Android install prompt when available, and remembers dismissal.
+export function InstallPrompt() {
+  const [show, setShow] = useState(false);
+  const [deferred, setDeferred] = useState(null);
+  const isStandalone = typeof window !== "undefined" &&
+    (window.matchMedia?.("(display-mode: standalone)").matches || window.navigator.standalone === true);
+  const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
+  const isIOS = /iphone|ipad|ipod/i.test(ua);
+  const isAndroid = /android/i.test(ua);
+
+  useEffect(() => {
+    if (isStandalone) return;
+    let dismissed = false;
+    try { dismissed = localStorage.getItem("nm_a2hs_dismissed") === "1"; } catch {}
+    if (dismissed) return;
+    const onBip = (e) => { e.preventDefault(); setDeferred(e); setShow(true); };
+    window.addEventListener("beforeinstallprompt", onBip);
+    // iOS never fires beforeinstallprompt — show manual instructions after a short delay.
+    const tid = setTimeout(() => { if (isIOS) setShow(true); }, 1200);
+    return () => { window.removeEventListener("beforeinstallprompt", onBip); clearTimeout(tid); };
+  }, []);
+
+  if (!show || isStandalone) return null;
+  const dismiss = () => { try { localStorage.setItem("nm_a2hs_dismissed", "1"); } catch {} setShow(false); };
+  const install = async () => {
+    if (!deferred) return;
+    deferred.prompt();
+    try { await deferred.userChoice; } catch {}
+    setDeferred(null); dismiss();
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 2147483000, display: "flex", alignItems: "flex-end", justifyContent: "center", background: "rgba(4,8,13,.55)", padding: 14, boxSizing: "border-box" }} onClick={dismiss}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 460, background: C.surface, borderRadius: 20, padding: 20, paddingBottom: "calc(20px + env(safe-area-inset-bottom, 0px))", boxShadow: "0 -8px 40px rgba(0,0,0,.4)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+          <img src={markNavy} alt="" style={{ height: 40, width: "auto" }} />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 800, color: C.fg, fontSize: 16 }}>Install Nodrog Maintenance</div>
+            <div style={{ fontSize: 12.5, color: C.mutedFg }}>Add it to your home screen for quick, full-screen access.</div>
+          </div>
+          <button onClick={dismiss} aria-label="Close" style={{ width: 32, height: 32, border: "none", background: "transparent", color: C.mutedFg, cursor: "pointer" }}><Icon name="x" size={20} /></button>
+        </div>
+
+        {deferred ? (
+          <PrimaryBtn onClick={install}><Icon name="plus" size={18} /> Add to Home Screen</PrimaryBtn>
+        ) : isIOS ? (
+          <div style={{ fontSize: 14, color: C.fg, lineHeight: 1.6 }}>
+            <Step n="1">Tap the <b>Share</b> button <Icon name="share" size={15} style={{ verticalAlign: "-3px" }} /> in Safari's toolbar.</Step>
+            <Step n="2">Scroll down and tap <b>“Add to Home Screen”</b>.</Step>
+            <Step n="3">Tap <b>Add</b> — the Nodrog icon appears on your home screen.</Step>
+          </div>
+        ) : (
+          <div style={{ fontSize: 14, color: C.fg, lineHeight: 1.6 }}>
+            <Step n="1">Tap the <b>⋮</b> menu {isAndroid ? "(top-right in Chrome)" : "in your browser"}.</Step>
+            <Step n="2">Tap <b>“Add to Home screen”</b> {isAndroid ? "or “Install app”" : ""}.</Step>
+            <Step n="3">Confirm — the Nodrog icon appears on your home screen.</Step>
+          </div>
+        )}
+        <button onClick={dismiss} style={{ width: "100%", marginTop: 12, minHeight: 40, border: "none", background: "transparent", color: C.mutedFg, fontSize: 13.5, fontWeight: 700, cursor: "pointer" }}>Maybe later</button>
+      </div>
+    </div>
+  );
+}
+const Step = ({ n, children }) => (
+  <div style={{ display: "flex", gap: 10, marginBottom: 8, alignItems: "flex-start" }}>
+    <span style={{ flexShrink: 0, width: 22, height: 22, borderRadius: 999, background: C.accent, color: "#fff", fontSize: 12, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{n}</span>
+    <span>{children}</span>
+  </div>
+);

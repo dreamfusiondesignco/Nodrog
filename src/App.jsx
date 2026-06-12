@@ -3,7 +3,7 @@ import { FLEETS, ACCENT2_OPTIONS, fleetRegistry } from './data.js';
 import { isSupabaseConfigured } from './lib/supabase.js';
 import { restoreSession, signOut as authSignOut } from './lib/auth.js';
 import * as db from './lib/db.js';
-import { C, applyTheme, PhoneFrame, Icon } from './ui.jsx';
+import { C, applyTheme, PhoneFrame, Icon, InstallPrompt } from './ui.jsx';
 import { Logo, Login, Dashboard, Trucks, TruckDetail, NewTruck } from './screens/core.jsx';
 import { IssueCard, Issues, NewIssue, Inventory, NewCheck, Reports } from './screens/forms.jsx';
 import { MoreHub, NewPart, ManageFleets, WeeklyReports, ReportDetail, Invoices, InvoiceDetail, NewInvoice, NewUsage, EditDocs, NewService } from './screens/admin.jsx';
@@ -214,7 +214,7 @@ export default function App() {
     </TweaksPanel>
   );
 
-  if (!user) return <PhoneFrame brandFont={FONTS[t.font]}><Login onLogin={async (u) => { setUser(u); setFleet('ALL'); go('dashboard'); await loadData(); }} />{Tweaks}</PhoneFrame>;
+  if (!user) return <PhoneFrame brandFont={FONTS[t.font]}><Login onLogin={async (u) => { setUser(u); setFleet('ALL'); go('dashboard'); await loadData(); }} /><InstallPrompt />{Tweaks}</PhoneFrame>;
 
   const canEdit = true;            // operational actions (checks, issues, parts) — any signed-in user
   const isAdmin = !!user.admin;    // truck create/edit + invoices/fleets — admins only
@@ -286,6 +286,7 @@ export default function App() {
           );
         })}
       </nav>
+      <InstallPrompt />
       {Tweaks}
     </PhoneFrame>
   );

@@ -43,6 +43,7 @@ export function Logo({ size = 44, light }) {
 export function Login({ onLogin }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPw, setShowPw] = useState(false);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
   const submit = async () => {
@@ -55,12 +56,22 @@ export function Login({ onLogin }) {
   };
   return (
     <div style={{ minHeight: '100%', background: `linear-gradient(165deg, ${C.primary} 0%, #0A1B2B 55%, #0B2238 100%)`, display: 'flex', flexDirection: 'column', padding: '0 22px', overflowY: 'auto' }}>
-      <div style={{ paddingTop: 64, marginBottom: 30 }}><Logo size={50} light /></div>
+      <div style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 56px)', marginBottom: 30 }}><Logo size={50} light /></div>
       <h1 style={{ color: '#fff', fontSize: 27, fontWeight: 800, margin: '0 0 6px', letterSpacing: '-.01em' }}>Fleet Maintenance</h1>
       <p style={{ color: '#9FB3C8', fontSize: 14, margin: '0 0 22px' }}>Sign in with your Nodrog account.</p>
       <div style={{ background: C.surface, borderRadius: 18, padding: 20, boxShadow: '0 18px 50px rgba(0,0,0,.35)' }}>
         <Field label="Email" value={email} onChange={(e) => setEmail(e.target.value)} type="email" autoCapitalize="off" autoCorrect="off" placeholder="you@company.com" onKeyDown={(e) => e.key === 'Enter' && submit()} />
-        <Field label="Password" value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder="••••••••" onKeyDown={(e) => e.key === 'Enter' && submit()} />
+        <label style={{ display: 'block', marginBottom: 14 }}>
+          <span style={{ display: 'block', fontSize: 13, fontWeight: 700, color: C.fg, marginBottom: 6 }}>Password</span>
+          <div style={{ position: 'relative' }}>
+            <input value={password} onChange={(e) => setPassword(e.target.value)} type={showPw ? 'text' : 'password'} placeholder="••••••••" onKeyDown={(e) => e.key === 'Enter' && submit()}
+              style={{ width: '100%', minHeight: 48, padding: '0 46px 0 14px', fontSize: 16, color: C.fg, border: `1px solid ${C.border}`, borderRadius: 11, background: C.surface, outline: 'none', boxSizing: 'border-box' }} />
+            <button type="button" onClick={() => setShowPw((v) => !v)} aria-label={showPw ? 'Hide password' : 'Show password'}
+              style={{ position: 'absolute', right: 4, top: 4, bottom: 4, width: 40, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.mutedFg }}>
+              <Icon name={showPw ? 'eyeoff' : 'eye'} size={20} />
+            </button>
+          </div>
+        </label>
         {err && <p style={{ color: C.danger, fontSize: 13, margin: '-4px 0 12px', fontWeight: 600 }}>{err}</p>}
         <PrimaryBtn onClick={submit} disabled={busy || !email.trim() || !password}><Icon name="logout" size={18} /> {busy ? 'Signing in…' : 'Sign in'}</PrimaryBtn>
       </div>
