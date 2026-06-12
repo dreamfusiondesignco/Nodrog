@@ -24,7 +24,10 @@ const LS = {
 
 export default function App() {
   const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
-  applyTheme(t.theme, t.accent2);
+  // User-selectable theme (persisted), independent of the design-tool tweaks panel.
+  const [userTheme, setUserTheme] = useState(() => LS.get('nm_theme', TWEAK_DEFAULTS.theme));
+  applyTheme(userTheme, t.accent2);
+  useEffect(() => LS.set('nm_theme', userTheme), [userTheme]);
 
   const [user, setUser] = useState(() => LS.get('nm_user', null));
   const [fleet, setFleet] = useState('ALL');
@@ -235,7 +238,7 @@ export default function App() {
     case 'invoices': screen = <Invoices invoices={vInvoices} trucks={trucks} go={go} />; break;
     case 'invoice': { const inv = invoices.find((x) => x.id === route.param); screen = inv ? <InvoiceDetail invoice={inv} trucks={trucks} onStatus={setInvoiceStatus} go={go} /> : <Invoices invoices={vInvoices} trucks={trucks} go={go} />; break; }
     case 'newinvoice': screen = <NewInvoice fleetIds={myFleets} trucks={vTrucks} onSave={addInvoice} go={go} />; break;
-    case 'more': screen = <MoreHub user={user} fleet={fleet} onFleet={setFleet} fleetIds={myFleets} multiFleet={multiFleet} fleetCount={Object.keys(fleets).length} inspections={vInspections} invoices={vInvoices} go={go} />; break;
+    case 'more': screen = <MoreHub user={user} fleet={fleet} onFleet={setFleet} fleetIds={myFleets} multiFleet={multiFleet} fleetCount={Object.keys(fleets).length} inspections={vInspections} invoices={vInvoices} go={go} theme={userTheme} onTheme={setUserTheme} />; break;
     default: screen = <Dashboard user={user} fleet={fleet} trucks={vTrucks} issues={vIssues} parts={vParts} go={go} />;
   }
 
@@ -249,8 +252,8 @@ export default function App() {
 
   return (
     <PhoneFrame brandFont={FONTS[t.font]}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 14px 8px', background: C.surface, borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
-        <Logo size={30} light={t.theme === 'midnight'} />
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'calc(env(safe-area-inset-top, 0px) + 14px) 14px 8px', background: C.surface, borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
+        <Logo size={30} light={userTheme === 'midnight'} />
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {multiFleet && fleet !== 'ALL' && (
             <span style={{ display: 'flex', alignItems: 'center', gap: 5, border: `1px solid ${C.border}`, background: C.surface2, borderRadius: 999, padding: '6px 11px', color: C.mutedFg, whiteSpace: 'nowrap' }}>

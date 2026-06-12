@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { fleetRegistry } from '../data.js';
+import { fleetRegistry, THEMES } from '../data.js';
 import { C, Icon, Badge, cardStyle, rowStyle, Field, Select, PrimaryBtn, GhostBtn, Header, SectionTitle, fmtDate, fmtNum } from '../ui.jsx';
 import { FleetChip, Chip, EmptyNote } from './core.jsx';
 
@@ -7,7 +7,45 @@ const money = (n) => '$' + Number(n || 0).toLocaleString('en-US');
 export const invTotal = (inv) => (inv.items || []).reduce((s, it) => s + (+it.qty || 0) * (+it.unit || 0), 0);
 const invStatusColor = (s) => s === 'paid' ? C.ok : s === 'sent' ? C.accent : C.mutedFg;
 
-export function MoreHub({ user, fleet, onFleet, fleetIds = [], multiFleet, fleetCount, inspections, invoices, go }) {
+const THEME_OPTIONS = [
+  { key: 'navy', label: 'Navy' },
+  { key: 'midnight', label: 'Midnight' },
+  { key: 'hivis', label: 'Hi-Vis' },
+];
+function ThemePicker({ theme, onTheme }) {
+  return (
+    <div style={{ ...cardStyle(), padding: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+        <Icon name="cog" size={17} color={C.accent} />
+        <div style={{ flex: 1 }}>
+          <div style={{ fontWeight: 800, color: C.fg, fontSize: 14.5 }}>Appearance</div>
+          <div style={{ fontSize: 12, color: C.mutedFg }}>Choose your theme</div>
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: 10 }}>
+        {THEME_OPTIONS.map(({ key, label }) => {
+          const th = THEMES[key];
+          const active = theme === key;
+          return (
+            <button key={key} onClick={() => onTheme(key)} style={{
+              flex: 1, cursor: 'pointer', borderRadius: 12, padding: 8, textAlign: 'center',
+              border: `2px solid ${active ? C.accent : C.border}`, background: active ? C.accent + '12' : C.surface,
+            }}>
+              <div style={{ height: 38, borderRadius: 8, background: th.bg, border: `1px solid ${th.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, marginBottom: 7 }}>
+                <span style={{ width: 12, height: 12, borderRadius: 999, background: th.primary }} />
+                <span style={{ width: 12, height: 12, borderRadius: 999, background: th.accent }} />
+                <span style={{ width: 12, height: 12, borderRadius: 999, background: th.accent2 }} />
+              </div>
+              <div style={{ fontSize: 12.5, fontWeight: 800, color: active ? C.accent : C.fg }}>{label}</div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+export function MoreHub({ user, fleet, onFleet, fleetIds = [], multiFleet, fleetCount, inspections, invoices, go, theme, onTheme }) {
   const Item = ({ icon, title, desc, onClick, badge, accent }) => (
     <button onClick={onClick} style={rowStyle()}>
       <div style={{ width: 42, height: 42, borderRadius: 11, background: (accent || C.accent) + '16', display: 'flex', alignItems: 'center', justifyContent: 'center', color: accent || C.accent }}>
@@ -42,6 +80,7 @@ export function MoreHub({ user, fleet, onFleet, fleetIds = [], multiFleet, fleet
             <div style={{ fontSize: 12, color: C.mutedFg }}>{user.role} · {user.access === '*' ? 'All fleets' : user.access.join(' + ')}{user.admin ? ' · Admin' : ''}</div>
           </div>
         </div>
+        <ThemePicker theme={theme} onTheme={onTheme} />
         {multiFleet && (
           <div style={{ ...cardStyle(), padding: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
