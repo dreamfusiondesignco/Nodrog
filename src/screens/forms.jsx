@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { fleetRegistry, INSPECT_SINGLE, INSPECT_POSITIONS, INSPECT_POSITION_CATS, INSPECT_FLUIDS, INSPECT_DRIVETRAIN } from '../data.js';
-import { C, Icon, Badge, cardStyle, rowStyle, Field, Select, PrimaryBtn, GhostBtn, Header, PhotoSlot, MediaSlot, SectionTitle, sevColor, fmtDate } from '../ui.jsx';
+import { C, Icon, Badge, cardStyle, rowStyle, Field, Select, PrimaryBtn, GhostBtn, Header, PhotoSlot, MediaSlot, MediaUpload, SectionTitle, sevColor, fmtDate } from '../ui.jsx';
 import { FleetChip, Chip, EmptyNote } from './core.jsx';
 
 export function IssueCard({ issue, truckPlate, compact }) {
@@ -23,6 +23,17 @@ export function IssueCard({ issue, truckPlate, compact }) {
         {i.oos && <Badge color={C.crit} solid><Icon name="ban" size={12} /> OUT OF SERVICE</Badge>}
         {i.photos && i.photos.length > 0 && <Badge color={C.mutedFg}><Icon name="camera" size={12} /> {i.photos.length}</Badge>}
       </div>
+      {Array.isArray(i.photos) && i.photos.some((m) => m && m.url) && (
+        <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+          {i.photos.filter((m) => m && m.url).map((m, idx) => (
+            <div key={idx} style={{ width: 60, height: 60, borderRadius: 10, overflow: 'hidden', border: `1px solid ${C.border}`, position: 'relative', background: C.surface2 }}>
+              {m.type === 'video'
+                ? <><video src={m.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted playsInline /><span style={{ position: 'absolute', left: 4, bottom: 4, background: 'rgba(0,0,0,.55)', color: '#fff', fontSize: 8, fontWeight: 800, padding: '1px 4px', borderRadius: 4 }}>VIDEO</span></>
+                : <img src={m.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+            </div>
+          ))}
+        </div>
+      )}
       {i.serious && i.partsNeeded && (
         <div style={{ marginTop: 10, padding: 10, borderRadius: 10, background: C.crit + '10', fontSize: 12.5 }}>
           <span style={{ fontWeight: 800, color: C.crit }}>Needed to fix: </span>
@@ -63,6 +74,7 @@ export function NewIssue({ trucks, preTruck, onSave, go }) {
   const [serious, setSerious] = useState(false);
   const [oos, setOos] = useState(false);
   const [partsNeeded, setPartsNeeded] = useState('');
+  const [media, setMedia] = useState([]);
   const sevs = ['low', 'medium', 'high', 'critical'];
   return (
     <div>
@@ -83,17 +95,18 @@ export function NewIssue({ trucks, preTruck, onSave, go }) {
               border: `1.5px solid ${severity === s ? sevColor(s) : C.border}`, background: severity === s ? sevColor(s) + '1A' : C.surface, color: severity === s ? sevColor(s) : C.mutedFg }}>{s}</button>
           ))}
         </div>
-        <span style={{ display: 'block', fontSize: 13, fontWeight: 700, marginBottom: 6, color: C.fg }}>Photos</span>
-        <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
-          <PhotoSlot /><PhotoSlot label="Add photo" />
+        <span style={{ display: 'block', fontSize: 13, fontWeight: 700, marginBottom: 6, color: C.fg }}>Photos &amp; video</span>
+        <div style={{ marginBottom: 6 }}>
+          <MediaUpload value={media} onChange={setMedia} maxPhotos={8} allowVideo />
         </div>
+        <div style={{ fontSize: 11.5, color: C.mutedFg, marginBottom: 16 }}>Add multiple photos (e.g. truck or damage images) and one short video.</div>
         <ToggleRow label="Serious issue" desc="Flag for supervisor — needs parts or major repair" value={serious} onChange={setSerious} color={C.warn} />
         {serious && <>
           <ToggleRow label="Take truck out of service" desc="Vehicle removed from duty until fixed" value={oos} onChange={setOos} color={C.crit} />
           <Field label="What's needed to fix it?" value={partsNeeded} onChange={(e) => setPartsNeeded(e.target.value)} placeholder="e.g. Center bolt + U-bolt set" hint="Parts / labour required" />
         </>}
         <PrimaryBtn disabled={!title.trim()} color={oos ? C.crit : C.accent}
-          onClick={() => onSave({ truckId, title, detail, severity, serious, oos, partsNeeded })}>
+          onClick={() => onSave({ truckId, title, detail, severity, serious, oos, partsNeeded, media })}>
           <Icon name="check" size={18} /> {oos ? 'Save & take out of service' : 'Save issue'}
         </PrimaryBtn>
       </div>

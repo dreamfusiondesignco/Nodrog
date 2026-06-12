@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { SEED_USERS, fleetRegistry, INSPECT_SINGLE, INSPECT_POSITIONS, INSPECT_POSITION_CATS, INSPECT_FLUIDS, INSPECT_DRIVETRAIN } from '../data.js';
+import { fleetRegistry } from '../data.js';
+import { signIn } from '../lib/auth.js';
 import { C, Icon, Badge, cardStyle, rowStyle, Field, Select, PrimaryBtn, GhostBtn, Header, PhotoSlot, MediaSlot, SectionTitle, sevColor, statusColor, statusLabel, fmtDate, fmtNum, daysUntil } from '../ui.jsx';
 import markNavy from '../../public/assets/nodrog-mark.svg';
 import markLight from '../../public/assets/nodrog-mark-light.svg';
@@ -40,37 +41,31 @@ export function Logo({ size = 44, light }) {
 }
 
 export function Login({ onLogin }) {
-  const [email, setEmail] = useState('marlon@nodrog.com');
-  const [pin, setPin] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [err, setErr] = useState('');
-  const submit = () => {
-    const u = SEED_USERS.find((x) => x.email === email.trim().toLowerCase() && x.pin === pin.trim());
-    if (u) onLogin(u); else setErr('Email or PIN is incorrect.');
+  const [busy, setBusy] = useState(false);
+  const submit = async () => {
+    if (busy) return;
+    setErr(''); setBusy(true);
+    const res = await signIn(email, password);
+    setBusy(false);
+    if (res.user) onLogin(res.user);
+    else setErr(res.error || 'Sign in failed.');
   };
-  const quick = (e) => { setEmail(e); setErr(''); };
   return (
     <div style={{ minHeight: '100%', background: `linear-gradient(165deg, ${C.primary} 0%, #0A1B2B 55%, #0B2238 100%)`, display: 'flex', flexDirection: 'column', padding: '0 22px', overflowY: 'auto' }}>
       <div style={{ paddingTop: 64, marginBottom: 30 }}><Logo size={50} light /></div>
-      <h1 style={{ color: '#fff', fontSize: 27, fontWeight: 800, margin: '0 0 22px', letterSpacing: '-.01em' }}>Fleet Maintenance</h1>
+      <h1 style={{ color: '#fff', fontSize: 27, fontWeight: 800, margin: '0 0 6px', letterSpacing: '-.01em' }}>Fleet Maintenance</h1>
+      <p style={{ color: '#9FB3C8', fontSize: 14, margin: '0 0 22px' }}>Sign in with your Nodrog account.</p>
       <div style={{ background: C.surface, borderRadius: 18, padding: 20, boxShadow: '0 18px 50px rgba(0,0,0,.35)' }}>
-        <Field label="Email" value={email} onChange={(e) => setEmail(e.target.value)} type="email" autoCapitalize="off" />
-        <Field label="PIN" value={pin} onChange={(e) => setPin(e.target.value)} type="password" placeholder="••••" inputMode="numeric" onKeyDown={(e) => e.key === 'Enter' && submit()} />
+        <Field label="Email" value={email} onChange={(e) => setEmail(e.target.value)} type="email" autoCapitalize="off" autoCorrect="off" placeholder="you@company.com" onKeyDown={(e) => e.key === 'Enter' && submit()} />
+        <Field label="Password" value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder="••••••••" onKeyDown={(e) => e.key === 'Enter' && submit()} />
         {err && <p style={{ color: C.danger, fontSize: 13, margin: '-4px 0 12px', fontWeight: 600 }}>{err}</p>}
-        <PrimaryBtn onClick={submit}><Icon name="logout" size={18} /> Sign in</PrimaryBtn>
+        <PrimaryBtn onClick={submit} disabled={busy || !email.trim() || !password}><Icon name="logout" size={18} /> {busy ? 'Signing in…' : 'Sign in'}</PrimaryBtn>
       </div>
-      <div style={{ marginTop: 18, paddingBottom: 28 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.08em', color: '#6E8198', marginBottom: 8 }}>DEMO ACCOUNTS · PIN shown</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-          {SEED_USERS.map((u) => (
-            <button key={u.id} onClick={() => quick(u.email)} style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.1)', borderRadius: 11, padding: '9px 12px', cursor: 'pointer', textAlign: 'left' }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ color: '#fff', fontSize: 13.5, fontWeight: 700 }}>{u.name} · <span style={{ color: '#9FB3C8', fontWeight: 600 }}>{u.role}</span></div>
-                <div style={{ color: '#7E92A8', fontSize: 11.5 }}>{u.email} · PIN {u.pin} · {u.access === '*' ? 'All fleets' : u.access.join(' + ')}{u.admin ? ' · Admin' : ''}</div>
-              </div>
-              <Icon name="chevron" size={16} color="#6E8198" />
-            </button>
-          ))}
-        </div>
+      <div style={{ marginTop: 18, paddingBottom: 28, color: '#6E8198', fontSize: 12, lineHeight: 1.5 }}>
+        Trouble signing in? Contact your fleet administrator to set up or reset your account.
       </div>
     </div>
   );
@@ -214,14 +209,16 @@ const trkSelect = () => ({
   boxSizing: 'border-box', cursor: 'pointer',
 });
 
-export function Trucks({ fleet, multiFleet, fleetIds = ['IGL', 'MASSY'], trucks, go }) {
+export function Trucks({ fleet, multiFleet, fleetIds = ['IGL', 'MASSY'], trucks, go, canEdit = true }) {
   const [f, setF] = useState('ALL');
   const [status, setStatus] = useState('all');
   const list = trucks.filter((t) => (f === 'ALL' || t.fleet === f) && (status === 'all' || (status === 'attn' ? t.status !== 'ok' : t.status === status)));
   return (
     <div>
-      <Header title="Trucks" sub={`${list.length} vehicle${list.length !== 1 ? 's' : ''}`} />
+      <Header title="Trucks" sub={`${list.length} vehicle${list.length !== 1 ? 's' : ''}`}
+        action={canEdit && <button onClick={() => go('newtruck')} aria-label="Add truck" style={{ minWidth: 42, minHeight: 42, borderRadius: 12, border: 'none', background: C.accent, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name="plus" size={20} color="#fff" /></button>} />
       <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {list.length === 0 && <EmptyNote icon="truck">No trucks yet. Tap + to add your first truck.</EmptyNote>}
         <div style={{ display: 'flex', gap: 10 }}>
           {multiFleet && (
             <select value={f} onChange={(e) => setF(e.target.value)} aria-label="Fleet" style={trkSelect()}>
@@ -409,6 +406,46 @@ export function TruckDetail({ truck, issues, usage, parts, history, go, onToggle
           {canEdit && <GhostBtn onClick={() => go('editdocs', truck.id)} style={{ width: '100%', marginTop: 12 }}><Icon name="edit" size={16} /> Edit documents</GhostBtn>}
         </div>}
         <div style={{ height: 10 }} />
+      </div>
+    </div>
+  );
+}
+
+export function NewTruck({ fleetIds = ['IGL', 'MASSY'], onSave, go }) {
+  const [fleet, setFleet] = useState(fleetIds[0] || 'IGL');
+  const [plate, setPlate] = useState('');
+  const [model, setModel] = useState('');
+  const [segment, setSegment] = useState('');
+  const [driver, setDriver] = useState('');
+  const [location, setLocation] = useState('');
+  const [odometer, setOdometer] = useState('');
+  const [idleHrs, setIdleHrs] = useState('');
+  const [chassis, setChassis] = useState('');
+  const [capacity, setCapacity] = useState('');
+  const valid = plate.trim() && fleet;
+  return (
+    <div>
+      <Header title="Add truck" sub="Register a new vehicle" onBack={() => go('trucks')} />
+      <div style={{ padding: '0 16px 24px' }}>
+        <Select label="Fleet" value={fleet} onChange={(e) => setFleet(e.target.value)}>
+          {fleetIds.map((k) => <option key={k} value={k}>{fleetRegistry[k]?.full || fleetRegistry[k]?.name || k}</option>)}
+        </Select>
+        <Field label="Number plate" value={plate} onChange={(e) => setPlate(e.target.value.toUpperCase())} placeholder="e.g. CN3179" />
+        <Field label="Make / model" value={model} onChange={(e) => setModel(e.target.value)} placeholder="e.g. Isuzu FVR — Box" />
+        <div style={{ display: 'flex', gap: 12 }}>
+          <div style={{ flex: 1 }}><Field label="Segment" value={segment} onChange={(e) => setSegment(e.target.value)} placeholder="e.g. Distribution" /></div>
+          <div style={{ flex: 1 }}><Field label="Capacity" value={capacity} onChange={(e) => setCapacity(e.target.value)} placeholder="e.g. 8 T" /></div>
+        </div>
+        <Field label="Driver" value={driver} onChange={(e) => setDriver(e.target.value)} placeholder="e.g. D. Campbell" />
+        <Field label="Base / location" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g. Kingston Depot" />
+        <div style={{ display: 'flex', gap: 12 }}>
+          <div style={{ flex: 1 }}><Field label="Odometer (mi)" value={odometer} onChange={(e) => setOdometer(e.target.value.replace(/[^0-9]/g, ''))} inputMode="numeric" placeholder="0" /></div>
+          <div style={{ flex: 1 }}><Field label="Idle hours" value={idleHrs} onChange={(e) => setIdleHrs(e.target.value.replace(/[^0-9.]/g, ''))} inputMode="decimal" placeholder="0" /></div>
+        </div>
+        <Field label="Chassis / VIN" value={chassis} onChange={(e) => setChassis(e.target.value)} placeholder="Chassis number" hint="Document expiry dates can be added later under the truck's Docs tab." />
+        <PrimaryBtn disabled={!valid} onClick={() => onSave({ fleet, plate: plate.trim(), model, segment, driver, location, odometer, idleHrs, chassis, capacity })}>
+          <Icon name="check" size={18} /> Save truck
+        </PrimaryBtn>
       </div>
     </div>
   );

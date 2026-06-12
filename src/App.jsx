@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { FLEETS, SEED_TRUCKS, SEED_ISSUES, SEED_PARTS, SEED_INSPECTIONS, SEED_INVOICES, SEED_USAGE, SEED_HISTORY, ACCENT2_OPTIONS, fleetRegistry } from './data.js';
+import { FLEETS, ACCENT2_OPTIONS, fleetRegistry } from './data.js';
+import { isSupabaseConfigured } from './lib/supabase.js';
+import { restoreSession, signOut as authSignOut } from './lib/auth.js';
 import { C, applyTheme, PhoneFrame, Icon } from './ui.jsx';
-import { Logo, Login, Dashboard, Trucks, TruckDetail } from './screens/core.jsx';
+import { Logo, Login, Dashboard, Trucks, TruckDetail, NewTruck } from './screens/core.jsx';
 import { IssueCard, Issues, NewIssue, Inventory, NewCheck, Reports } from './screens/forms.jsx';
 import { MoreHub, NewPart, ManageFleets, WeeklyReports, ReportDetail, Invoices, InvoiceDetail, NewInvoice, NewUsage, EditDocs, NewService } from './screens/admin.jsx';
 import { useTweaks, TweaksPanel, TweakSection, TweakRadio, TweakColor } from './tweaks-panel.jsx';
@@ -30,16 +32,25 @@ export default function App() {
   const [toast, setToast] = useState('');
 
   const [fleets, setFleets] = useState(() => LS.get('nm_fleets', FLEETS));
-  const [trucks, setTrucks] = useState(() => LS.get('nm_trucks', SEED_TRUCKS));
-  const [issues, setIssues] = useState(() => LS.get('nm_issues', SEED_ISSUES));
-  const [parts, setParts] = useState(() => LS.get('nm_parts', SEED_PARTS));
-  const [inspections, setInspections] = useState(() => LS.get('nm_inspections', SEED_INSPECTIONS));
-  const [invoices, setInvoices] = useState(() => LS.get('nm_invoices', SEED_INVOICES));
-  const [usage, setUsage] = useState(() => LS.get('nm_usage', SEED_USAGE));
-  const [history, setHistory] = useState(() => LS.get('nm_history', SEED_HISTORY));
+  const [trucks, setTrucks] = useState(() => LS.get('nm_trucks', []));
+  const [issues, setIssues] = useState(() => LS.get('nm_issues', []));
+  const [parts, setParts] = useState(() => LS.get('nm_parts', []));
+  const [inspections, setInspections] = useState(() => LS.get('nm_inspections', []));
+  const [invoices, setInvoices] = useState(() => LS.get('nm_invoices', []));
+  const [usage, setUsage] = useState(() => LS.get('nm_usage', []));
+  const [history, setHistory] = useState(() => LS.get('nm_history', []));
 
   // keep the shared mutable registry in sync so every screen sees admin-created fleets
   Object.assign(fleetRegistry, fleets);
+
+  // Restore a Supabase session on load (keeps users signed in across refreshes).
+  // If the backend is connected but there's no valid session, sign out locally.
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    let active = true;
+    restoreSession().then((u) => { if (active) setUser(u); });
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => LS.set('nm_user', user), [user]);
   useEffect(() => LS.set('nm_fleets', fleets), [fleets]);
@@ -69,14 +80,36 @@ export default function App() {
   const go = (name, param = null) => {
     setRoute({ name, param });
     if (['dashboard', 'trucks', 'issues', 'inventory', 'more'].includes(name)) setTab(name);
+    if (['newtruck', 'truck', 'newcheck', 'usepart', 'editdocs', 'newservice'].includes(name)) setTab('trucks');
     if (['reports', 'weeklyreports', 'invoices', 'fleets', 'newpart', 'report', 'invoice', 'newinvoice'].includes(name)) setTab('more');
     document.querySelector('#scroll')?.scrollTo(0, 0);
   };
   const showToast = (m) => { setToast(m); clearTimeout(window.__tt); window.__tt = setTimeout(() => setToast(''), 2400); };
 
-  const today = '2026-06-11';
-  const saveIssue = ({ truckId, title, detail, severity, serious, oos, partsNeeded }) => {
-    setIssues((arr) => [{ id: 'i' + Date.now(), fleet: trucks.find((t2) => t2.id === truckId).fleet, truckId, title, detail, severity, status: 'open', date: today, by: user.name, serious, oos, partsNeeded, photos: [] }, ...arr]);
+  const today = new Date().toISOString().slice(0, 10);
+  const addTruck = (d) => {
+    const id = 't' + Date.now();
+    const odo = +d.odometer || 0;
+    const idle = +d.idleHrs || 0;
+    const truck = {
+      id, fleet: d.fleet, plate: d.plate, model: d.model || '', segment: d.segment || '',
+      chassis: d.chassis || '', capacity: d.capacity || '', driver: d.driver || '', location: d.location || '',
+      status: 'ok', odometer: odo, idleHrs: idle, lastCheck: '',
+      service: {
+        engine: { lastMiles: odo, lastIdleHrs: idle, date: '', nextDueMiles: odo + 8000, nextDueHrs: idle + 500 },
+        transmission: { lastMiles: odo, lastIdleHrs: idle, date: '' },
+        airFilter: { lastMiles: odo, date: '' },
+        frontDiff: { lastMiles: odo, lastIdleHrs: idle, date: '' },
+        rearDiff: { lastMiles: odo, lastIdleHrs: idle, date: '' },
+      },
+      fireExtDate: '', insuranceExp: '', fitnessExp: '', mvRegExp: '', carrierLicExp: '',
+    };
+    setTrucks((arr) => [truck, ...arr]);
+    showToast(`Truck ${d.plate} added`);
+    go('truck', id);
+  };
+  const saveIssue = ({ truckId, title, detail, severity, serious, oos, partsNeeded, media }) => {
+    setIssues((arr) => [{ id: 'i' + Date.now(), fleet: trucks.find((t2) => t2.id === truckId).fleet, truckId, title, detail, severity, status: 'open', date: today, by: user.name, serious, oos, partsNeeded, photos: media || [] }, ...arr]);
     if (oos) setTrucks((arr) => arr.map((tr) => tr.id === truckId ? { ...tr, status: 'oos' } : tr));
     showToast(oos ? 'Issue saved · truck taken out of service' : 'Issue logged');
     go(route.param ? 'truck' : 'issues', route.param);
@@ -130,8 +163,9 @@ export default function App() {
   const canEdit = true;
   let screen;
   switch (route.name) {
-    case 'trucks': screen = <Trucks fleet={fleet} multiFleet={multiFleet} fleetIds={myFleets} trucks={vTrucks} go={go} />; break;
-    case 'truck': { const tr = trucks.find((x) => x.id === route.param); screen = tr ? <TruckDetail truck={tr} issues={issues} usage={usage} parts={parts} history={history} go={go} onToggleOOS={toggleOOS} canEdit={canEdit} /> : <Trucks fleet={fleet} multiFleet={multiFleet} fleetIds={myFleets} trucks={vTrucks} go={go} />; break; }
+    case 'trucks': screen = <Trucks fleet={fleet} multiFleet={multiFleet} fleetIds={myFleets} trucks={vTrucks} go={go} canEdit={canEdit} />; break;
+    case 'newtruck': screen = <NewTruck fleetIds={myFleets} onSave={addTruck} go={go} />; break;
+    case 'truck': { const tr = trucks.find((x) => x.id === route.param); screen = tr ? <TruckDetail truck={tr} issues={issues} usage={usage} parts={parts} history={history} go={go} onToggleOOS={toggleOOS} canEdit={canEdit} /> : <Trucks fleet={fleet} multiFleet={multiFleet} fleetIds={myFleets} trucks={vTrucks} go={go} canEdit={canEdit} />; break; }
     case 'issues': screen = <Issues trucks={trucks} issues={vIssues} go={go} canEdit={canEdit} />; break;
     case 'newissue': screen = <NewIssue trucks={vTrucks} preTruck={route.param} onSave={saveIssue} go={go} />; break;
     case 'inventory': screen = <Inventory parts={vParts} multiFleet={multiFleet} fleetIds={myFleets} go={go} onAdjust={adjustPart} canEdit={canEdit} />; break;
@@ -170,7 +204,7 @@ export default function App() {
               <span style={{ fontSize: 12, fontWeight: 800, color: C.fg }}>{fleetRegistry[fleet]?.name || fleet}</span>
             </span>
           )}
-          <button onClick={() => { if (confirm('Sign out?')) setUser(null); }} aria-label="Sign out" style={{ width: 38, height: 38, borderRadius: 999, border: `1px solid ${C.border}`, background: C.surface, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.mutedFg }}>
+          <button onClick={async () => { if (confirm('Sign out?')) { await authSignOut(); setUser(null); go('dashboard'); } }} aria-label="Sign out" style={{ width: 38, height: 38, borderRadius: 999, border: `1px solid ${C.border}`, background: C.surface, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.mutedFg }}>
             <Icon name="logout" size={17} />
           </button>
         </div>

@@ -176,6 +176,115 @@ export function MediaSlot({ label, kind = "photo" }) {
   );
 }
 
+// Downscale an image File to a JPEG data URL (keeps localStorage/payloads small).
+function fileToScaledImage(file, maxDim = 1280, quality = 0.8) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > height && width > maxDim) { height = Math.round(height * maxDim / width); width = maxDim; }
+        else if (height > maxDim) { width = Math.round(width * maxDim / height); height = maxDim; }
+        const canvas = document.createElement("canvas");
+        canvas.width = width; canvas.height = height;
+        canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+        resolve({ type: "image", url: canvas.toDataURL("image/jpeg", quality), name: file.name });
+      };
+      img.onerror = () => resolve(null);
+      img.src = e.target.result;
+    };
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(file);
+  });
+}
+
+function fileToDataUrl(file, type) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => resolve({ type, url: e.target.result, name: file.name });
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(file);
+  });
+}
+
+// Real media uploader: multiple photos + optional video, with previews and remove.
+// `value` is an array of { type:'image'|'video', url, name }; `onChange` replaces it.
+export function MediaUpload({ value = [], onChange, maxPhotos = 8, allowVideo = true }) {
+  const photoRef = useRef(null);
+  const videoRef = useRef(null);
+  const [busy, setBusy] = useState(false);
+  const photos = value.filter((m) => m.type === "image");
+  const videos = value.filter((m) => m.type === "video");
+
+  const addPhotos = async (files) => {
+    if (!files || !files.length) return;
+    setBusy(true);
+    const room = maxPhotos - photos.length;
+    const picked = Array.from(files).slice(0, Math.max(0, room));
+    const added = (await Promise.all(picked.map((f) => fileToScaledImage(f)))).filter(Boolean);
+    onChange([...value, ...added]);
+    setBusy(false);
+  };
+  const addVideo = async (files) => {
+    const file = files && files[0];
+    if (!file) return;
+    setBusy(true);
+    const v = await fileToDataUrl(file, "video");
+    if (v) onChange([...value.filter((m) => m.type !== "video"), v]); // one video
+    setBusy(false);
+  };
+  const removeAt = (item) => onChange(value.filter((m) => m !== item));
+
+  const tile = (extra) => ({
+    width: 84, height: 84, flexShrink: 0, borderRadius: 12, position: "relative",
+    border: `1.5px solid ${C.border}`, overflow: "hidden", background: C.surface2, ...extra,
+  });
+  const addTile = {
+    width: 84, height: 84, flexShrink: 0, borderRadius: 12, cursor: "pointer",
+    border: `1.5px dashed ${C.border}`, background: C.surface2, color: C.mutedFg,
+    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+    gap: 5, fontSize: 10.5, fontWeight: 700, padding: 4,
+  };
+
+  return (
+    <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+      {photos.map((m, i) => (
+        <div key={"p" + i} style={tile()}>
+          <img src={m.url} alt={m.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          <button onClick={() => removeAt(m)} aria-label="Remove photo" style={removeBtn}><Icon name="x" size={13} color="#fff" /></button>
+        </div>
+      ))}
+      {videos.map((m, i) => (
+        <div key={"v" + i} style={tile({ display: "flex", alignItems: "center", justifyContent: "center", color: C.accent })}>
+          <video src={m.url} style={{ width: "100%", height: "100%", objectFit: "cover" }} muted playsInline />
+          <span style={{ position: "absolute", left: 6, bottom: 6, background: "rgba(0,0,0,.55)", color: "#fff", fontSize: 9, fontWeight: 800, padding: "2px 5px", borderRadius: 5 }}>VIDEO</span>
+          <button onClick={() => removeAt(m)} aria-label="Remove video" style={removeBtn}><Icon name="x" size={13} color="#fff" /></button>
+        </div>
+      ))}
+      {photos.length < maxPhotos && (
+        <button type="button" onClick={() => photoRef.current?.click()} style={addTile} disabled={busy}>
+          <Icon name="camera" size={22} />
+          <span style={{ textAlign: "center", lineHeight: 1.1 }}>{busy ? "…" : "Add photos"}</span>
+        </button>
+      )}
+      {allowVideo && videos.length === 0 && (
+        <button type="button" onClick={() => videoRef.current?.click()} style={addTile} disabled={busy}>
+          <Icon name="video" size={22} />
+          <span style={{ textAlign: "center", lineHeight: 1.1 }}>Add video</span>
+        </button>
+      )}
+      <input ref={photoRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={(e) => { addPhotos(e.target.files); e.target.value = ""; }} />
+      <input ref={videoRef} type="file" accept="video/*" style={{ display: "none" }} onChange={(e) => { addVideo(e.target.files); e.target.value = ""; }} />
+    </div>
+  );
+}
+const removeBtn = {
+  position: "absolute", top: 4, right: 4, width: 20, height: 20, borderRadius: 999,
+  border: "none", background: "rgba(0,0,0,.55)", cursor: "pointer",
+  display: "flex", alignItems: "center", justifyContent: "center", padding: 0,
+};
+
 export const SectionTitle = ({ children, right }) => (
   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "14px 0 2px" }}>
     <h3 style={{ fontSize: 13, fontWeight: 800, letterSpacing: ".06em", textTransform: "uppercase", color: C.mutedFg, margin: 0 }}>{children}</h3>
