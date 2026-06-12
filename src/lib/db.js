@@ -105,6 +105,22 @@ export async function uploadMedia(items, userId) {
 
 // ───────────────────────── inserts / updates ─────────────────────────
 // Each returns the saved object in app shape. In local mode it just stamps an id.
+
+// Per-user preferences (theme) — stored in user_settings, scoped to the user by RLS.
+// Degrades gracefully if the table hasn't been created yet.
+export async function loadUserSettings(userId) {
+  if (!live() || !userId) return null;
+  try {
+    const { data, error } = await supabase.from('user_settings').select('theme').eq('id', userId).maybeSingle();
+    if (error) return null;
+    return data || null;
+  } catch { return null; }
+}
+export async function saveTheme(userId, theme) {
+  if (!live() || !userId) return;
+  try { await supabase.from('user_settings').upsert({ id: userId, theme, updated_at: new Date().toISOString() }); } catch {}
+}
+
 export async function insertTruck(t) {
   if (!live()) return { ...t, id: t.id || newId('t') };
   const { data, error } = await supabase.from('trucks').insert(truckToRow(t)).select().single();

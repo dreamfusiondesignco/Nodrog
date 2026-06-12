@@ -16,6 +16,7 @@ const FONTS = {
 };
 
 const TWEAK_DEFAULTS = { theme: 'navy', accent2: '#F4842B', font: 'jakarta' };
+const THEMES_KEYS = ['navy', 'midnight', 'hivis'];
 
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
@@ -57,8 +58,21 @@ export default function App() {
     setHistory(data.history); setInvoices(data.invoices);
   };
 
+  // Load the user's saved theme (cross-device) and apply it.
+  const loadUserTheme = async (u) => {
+    if (!u) return;
+    const s = await db.loadUserSettings(u.id);
+    if (s?.theme && THEMES_KEYS.includes(s.theme)) { setUserTheme(s.theme); LS.set('nm_theme', s.theme); }
+  };
+  // User picks a theme → apply instantly, cache locally, and persist to their account.
+  const chooseTheme = (themeKey) => {
+    setUserTheme(themeKey);
+    LS.set('nm_theme', themeKey);
+    if (user) db.saveTheme(user.id, themeKey);
+  };
+
   // Restore a Supabase session on load (keeps users signed in across refreshes),
-  // then pull fresh data. If the backend is connected but there's no session, log out.
+  // then pull fresh data + the user's saved theme.
   useEffect(() => {
     if (!isSupabaseConfigured) return;
     let active = true;
@@ -66,7 +80,7 @@ export default function App() {
       const u = await restoreSession();
       if (!active) return;
       setUser(u);
-      if (u) await loadData();
+      if (u) { await loadData(); await loadUserTheme(u); }
     })();
     return () => { active = false; };
   }, []);
@@ -214,7 +228,7 @@ export default function App() {
     </TweaksPanel>
   );
 
-  if (!user) return <PhoneFrame brandFont={FONTS[t.font]}><Login onLogin={async (u) => { setUser(u); setFleet('ALL'); go('dashboard'); await loadData(); }} /><InstallPrompt />{Tweaks}</PhoneFrame>;
+  if (!user) return <PhoneFrame brandFont={FONTS[t.font]}><Login onLogin={async (u) => { setUser(u); setFleet('ALL'); go('dashboard'); await loadData(); await loadUserTheme(u); }} /><InstallPrompt />{Tweaks}</PhoneFrame>;
 
   const canEdit = true;            // operational actions (checks, issues, parts) — any signed-in user
   const isAdmin = !!user.admin;    // truck create/edit + invoices/fleets — admins only
@@ -238,7 +252,7 @@ export default function App() {
     case 'invoices': screen = <Invoices invoices={vInvoices} trucks={trucks} go={go} />; break;
     case 'invoice': { const inv = invoices.find((x) => x.id === route.param); screen = inv ? <InvoiceDetail invoice={inv} trucks={trucks} onStatus={setInvoiceStatus} go={go} /> : <Invoices invoices={vInvoices} trucks={trucks} go={go} />; break; }
     case 'newinvoice': screen = <NewInvoice fleetIds={myFleets} trucks={vTrucks} onSave={addInvoice} go={go} />; break;
-    case 'more': screen = <MoreHub user={user} fleet={fleet} onFleet={setFleet} fleetIds={myFleets} multiFleet={multiFleet} fleetCount={Object.keys(fleets).length} inspections={vInspections} invoices={vInvoices} go={go} theme={userTheme} onTheme={setUserTheme} />; break;
+    case 'more': screen = <MoreHub user={user} fleet={fleet} onFleet={setFleet} fleetIds={myFleets} multiFleet={multiFleet} fleetCount={Object.keys(fleets).length} inspections={vInspections} invoices={vInvoices} go={go} theme={userTheme} onTheme={chooseTheme} />; break;
     default: screen = <Dashboard user={user} fleet={fleet} trucks={vTrucks} issues={vIssues} parts={vParts} go={go} />;
   }
 
