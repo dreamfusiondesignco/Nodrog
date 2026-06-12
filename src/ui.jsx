@@ -66,7 +66,7 @@ export const statusColor = (s) => s === "oos" ? C.crit : s === "overdue" ? C.dan
 export const statusLabel = (s) => s === "oos" ? "OUT OF SERVICE" : s.toUpperCase();
 export const fmtDate = (iso) => { if (!iso) return "—"; const d = new Date(iso + "T00:00"); return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }); };
 export const fmtNum = (n) => (n == null ? "—" : Number(n).toLocaleString("en-US"));
-export const daysUntil = (iso) => Math.round((new Date(iso + "T00:00") - new Date("2026-06-11T00:00")) / 86400000);
+export const daysUntil = (iso) => { if (!iso) return NaN; const todayIso = new Date().toISOString().slice(0, 10); return Math.round((new Date(iso + "T00:00") - new Date(todayIso + "T00:00")) / 86400000); };
 
 // ---------- primitives ----------
 export const Badge = ({ children, color, solid }) => (

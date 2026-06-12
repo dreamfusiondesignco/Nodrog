@@ -270,7 +270,7 @@ export function Trucks({ fleet, multiFleet, fleetIds = ['IGL', 'MASSY'], trucks,
   );
 }
 
-export function TruckDetail({ truck, issues, usage, parts, history, go, onToggleOOS, canEdit }) {
+export function TruckDetail({ truck, issues, usage, parts, history, go, onToggleOOS, canEdit, canEditTruck = false }) {
   const [tab, setTab] = useState('service');
   const tIssues = issues.filter((i) => i.truckId === truck.id);
   const openIss = tIssues.filter((i) => i.status === 'open');
@@ -403,7 +403,7 @@ export function TruckDetail({ truck, issues, usage, parts, history, go, onToggle
             <ExpRow k="Carrier licence" d={truck.carrierLicExp} />
             <ExpRow k="Fire extinguisher" d={truck.fireExtDate} />
           </div>
-          {canEdit && <GhostBtn onClick={() => go('editdocs', truck.id)} style={{ width: '100%', marginTop: 12 }}><Icon name="edit" size={16} /> Edit documents</GhostBtn>}
+          {canEditTruck && <GhostBtn onClick={() => go('editdocs', truck.id)} style={{ width: '100%', marginTop: 12 }}><Icon name="edit" size={16} /> Edit documents</GhostBtn>}
         </div>}
         <div style={{ height: 10 }} />
       </div>

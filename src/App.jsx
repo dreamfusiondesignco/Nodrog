@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { FLEETS, ACCENT2_OPTIONS, fleetRegistry } from './data.js';
 import { isSupabaseConfigured } from './lib/supabase.js';
 import { restoreSession, signOut as authSignOut } from './lib/auth.js';
+import * as db from './lib/db.js';
 import { C, applyTheme, PhoneFrame, Icon } from './ui.jsx';
 import { Logo, Login, Dashboard, Trucks, TruckDetail, NewTruck } from './screens/core.jsx';
 import { IssueCard, Issues, NewIssue, Inventory, NewCheck, Reports } from './screens/forms.jsx';
@@ -43,12 +44,27 @@ export default function App() {
   // keep the shared mutable registry in sync so every screen sees admin-created fleets
   Object.assign(fleetRegistry, fleets);
 
-  // Restore a Supabase session on load (keeps users signed in across refreshes).
-  // If the backend is connected but there's no valid session, sign out locally.
+  // Pull every collection from Supabase (no-op in local/demo mode).
+  const loadData = async () => {
+    const data = await db.loadAll();
+    if (!data) return; // local mode → keep localStorage state
+    setFleets((prev) => ({ ...prev, ...data.fleets }));
+    setTrucks(data.trucks); setParts(data.parts); setUsage(data.usage);
+    setIssues(data.issues); setInspections(data.inspections);
+    setHistory(data.history); setInvoices(data.invoices);
+  };
+
+  // Restore a Supabase session on load (keeps users signed in across refreshes),
+  // then pull fresh data. If the backend is connected but there's no session, log out.
   useEffect(() => {
     if (!isSupabaseConfigured) return;
     let active = true;
-    restoreSession().then((u) => { if (active) setUser(u); });
+    (async () => {
+      const u = await restoreSession();
+      if (!active) return;
+      setUser(u);
+      if (u) await loadData();
+    })();
     return () => { active = false; };
   }, []);
 
@@ -87,12 +103,13 @@ export default function App() {
   const showToast = (m) => { setToast(m); clearTimeout(window.__tt); window.__tt = setTimeout(() => setToast(''), 2400); };
 
   const today = new Date().toISOString().slice(0, 10);
-  const addTruck = (d) => {
-    const id = 't' + Date.now();
+  const fail = (msg, e) => showToast(`${msg}${e?.message ? ': ' + e.message : ''}`);
+
+  const addTruck = async (d) => {
     const odo = +d.odometer || 0;
     const idle = +d.idleHrs || 0;
-    const truck = {
-      id, fleet: d.fleet, plate: d.plate, model: d.model || '', segment: d.segment || '',
+    const base = {
+      fleet: d.fleet, plate: d.plate, model: d.model || '', segment: d.segment || '',
       chassis: d.chassis || '', capacity: d.capacity || '', driver: d.driver || '', location: d.location || '',
       status: 'ok', odometer: odo, idleHrs: idle, lastCheck: '',
       service: {
@@ -104,49 +121,85 @@ export default function App() {
       },
       fireExtDate: '', insuranceExp: '', fitnessExp: '', mvRegExp: '', carrierLicExp: '',
     };
-    setTrucks((arr) => [truck, ...arr]);
-    showToast(`Truck ${d.plate} added`);
-    go('truck', id);
+    try { const saved = await db.insertTruck(base); setTrucks((arr) => [saved, ...arr]); showToast(`Truck ${saved.plate} added`); go('truck', saved.id); }
+    catch (e) { fail('Could not save truck', e); }
   };
-  const saveIssue = ({ truckId, title, detail, severity, serious, oos, partsNeeded, media }) => {
-    setIssues((arr) => [{ id: 'i' + Date.now(), fleet: trucks.find((t2) => t2.id === truckId).fleet, truckId, title, detail, severity, status: 'open', date: today, by: user.name, serious, oos, partsNeeded, photos: media || [] }, ...arr]);
-    if (oos) setTrucks((arr) => arr.map((tr) => tr.id === truckId ? { ...tr, status: 'oos' } : tr));
-    showToast(oos ? 'Issue saved · truck taken out of service' : 'Issue logged');
-    go(route.param ? 'truck' : 'issues', route.param);
+  const saveIssue = async ({ truckId, title, detail, severity, serious, oos, partsNeeded, media }) => {
+    try {
+      const tr = trucks.find((t2) => t2.id === truckId);
+      const photos = await db.uploadMedia(media || [], user.id);
+      const saved = await db.insertIssue({ fleet: tr.fleet, truckId, title, detail, severity, status: 'open', date: today, by: user.name, serious, oos, partsNeeded, photos }, user);
+      setIssues((arr) => [saved, ...arr]);
+      if (oos) { await db.patchTruck(truckId, { status: 'oos' }); setTrucks((arr) => arr.map((t2) => t2.id === truckId ? { ...t2, status: 'oos' } : t2)); }
+      showToast(oos ? 'Issue saved · truck taken out of service' : 'Issue logged');
+      go(route.param ? 'truck' : 'issues', route.param);
+    } catch (e) { fail('Could not save issue', e); }
   };
-  const saveCheck = (truckId, payload) => {
-    const tr = trucks.find((x) => x.id === truckId);
-    const attn = payload.attn || 0;
-    setInspections((arr) => [{ id: 'r' + Date.now(), truckId, fleet: tr.fleet, date: today, by: user.name, attn, missing: payload.missing || '', general: payload.general || '', results: payload.results || {}, notes: payload.notes || {} }, ...arr]);
-    setTrucks((arr) => arr.map((x) => x.id === truckId ? { ...x, status: x.status === 'oos' ? 'oos' : (attn ? 'due' : 'ok'), lastCheck: today } : x));
-    showToast(attn ? `Check saved · ${attn} item(s) flagged` : 'Weekly check completed');
-    go('truck', truckId);
+  const saveCheck = async (truckId, payload) => {
+    try {
+      const tr = trucks.find((x) => x.id === truckId);
+      const attn = payload.attn || 0;
+      const media = await db.uploadMedia(payload.media || [], user.id);
+      const saved = await db.insertInspection({ truckId, fleet: tr.fleet, date: today, by: user.name, attn, missing: payload.missing || '', general: payload.general || '', results: payload.results || {}, notes: payload.notes || {}, media }, user);
+      setInspections((arr) => [saved, ...arr]);
+      const status = tr.status === 'oos' ? 'oos' : (attn ? 'due' : 'ok');
+      await db.patchTruck(truckId, { status, lastCheck: today });
+      setTrucks((arr) => arr.map((x) => x.id === truckId ? { ...x, status, lastCheck: today } : x));
+      showToast(attn ? `Check saved · ${attn} item(s) flagged` : 'Weekly check completed');
+      go('truck', truckId);
+    } catch (e) { fail('Could not save check', e); }
   };
-  const toggleOOS = (truck) => {
+  const toggleOOS = async (truck) => {
     const goingOut = truck.status !== 'oos';
-    setTrucks((arr) => arr.map((tr) => tr.id === truck.id ? { ...tr, status: goingOut ? 'oos' : 'due' } : tr));
-    showToast(goingOut ? `${truck.plate} taken out of service` : `${truck.plate} returned to duty`);
+    const status = goingOut ? 'oos' : 'due';
+    setTrucks((arr) => arr.map((tr) => tr.id === truck.id ? { ...tr, status } : tr));
+    try { await db.patchTruck(truck.id, { status }); showToast(goingOut ? `${truck.plate} taken out of service` : `${truck.plate} returned to duty`); }
+    catch (e) { fail('Could not update status', e); }
   };
-  const adjustPart = (id, d) => setParts((arr) => arr.map((p) => p.id === id ? { ...p, qty: Math.max(0, p.qty + d) } : p));
-  const addPart = (p) => { setParts((arr) => [{ id: 'p' + Date.now(), ...p }, ...arr]); showToast(`Part "${p.name}" added`); go('inventory'); };
-  const addFleet = (f) => {
+  const adjustPart = async (id, d) => {
+    const p = parts.find((x) => x.id === id); if (!p) return;
+    const qty = Math.max(0, p.qty + d);
+    setParts((arr) => arr.map((x) => x.id === id ? { ...x, qty } : x));
+    try { await db.updatePartQty(id, qty); } catch (e) { fail('Stock update failed', e); }
+  };
+  const addPart = async (p) => {
+    try { const saved = await db.insertPart({ ...p }); setParts((arr) => [saved, ...arr]); showToast(`Part "${saved.name}" added`); go('inventory'); }
+    catch (e) { fail('Could not add part', e); }
+  };
+  const addFleet = async (f) => {
     if (fleets[f.id]) { showToast('That fleet already exists'); return; }
-    setFleets((m) => ({ ...m, [f.id]: f })); showToast(`Fleet "${f.name}" created`);
+    try { const saved = await db.insertFleet(f); setFleets((m) => ({ ...m, [saved.id]: saved })); showToast(`Fleet "${saved.name}" created`); }
+    catch (e) { fail('Could not add fleet', e); }
   };
-  const addInvoice = (inv) => {
+  const addInvoice = async (inv) => {
     const num = 'NL-' + (1044 + invoices.length + 1);
-    setInvoices((arr) => [{ id: 'inv' + Date.now(), number: num, status: 'draft', date: today, ...inv }, ...arr]);
-    showToast(`Invoice ${num} created`); go('invoices');
+    try { const saved = await db.insertInvoice({ number: num, status: 'draft', date: today, ...inv }); setInvoices((arr) => [saved, ...arr]); showToast(`Invoice ${saved.number} created`); go('invoices'); }
+    catch (e) { fail('Could not create invoice', e); }
   };
-  const setInvoiceStatus = (id, status) => { setInvoices((arr) => arr.map((i) => i.id === id ? { ...i, status } : i)); showToast(`Invoice marked ${status}`); };
-  const recordUsage = (truckId, { partId, qty, date, note }) => {
-    setUsage((arr) => [{ id: 'us' + Date.now(), partId, truckId, qty, date, by: user.name, note }, ...arr]);
-    setParts((arr) => arr.map((p) => p.id === partId ? { ...p, qty: Math.max(0, p.qty - qty) } : p));
-    showToast('Part recorded · stock updated');
+  const setInvoiceStatus = async (id, status) => {
+    setInvoices((arr) => arr.map((i) => i.id === id ? { ...i, status } : i));
+    try { await db.updateInvoiceStatus(id, status); showToast(`Invoice marked ${status}`); }
+    catch (e) { fail('Status update failed', e); }
+  };
+  const recordUsage = async (truckId, { partId, qty, date, note }) => {
+    try {
+      const saved = await db.insertUsage({ partId, truckId, qty, date, by: user.name, note }, user);
+      setUsage((arr) => [saved, ...arr]);
+      const p = parts.find((x) => x.id === partId);
+      if (p) { const nq = Math.max(0, p.qty - qty); setParts((arr) => arr.map((x) => x.id === partId ? { ...x, qty: nq } : x)); await db.updatePartQty(partId, nq); }
+      showToast('Part recorded · stock updated');
+      go('truck', truckId);
+    } catch (e) { fail('Could not record part', e); }
+  };
+  const updateTruckDocs = async (truckId, fields) => {
+    setTrucks((arr) => arr.map((tr) => tr.id === truckId ? { ...tr, ...fields } : tr));
+    try { await db.patchTruck(truckId, fields); showToast('Documents updated'); } catch (e) { fail('Could not save documents', e); }
     go('truck', truckId);
   };
-  const updateTruckDocs = (truckId, fields) => { setTrucks((arr) => arr.map((tr) => tr.id === truckId ? { ...tr, ...fields } : tr)); showToast('Documents updated'); go('truck', truckId); };
-  const addService = (truckId, rec) => { setHistory((arr) => [{ id: 'h' + Date.now(), truckId, by: user.name, ...rec }, ...arr]); showToast('Service record added'); go('truck', truckId); };
+  const addService = async (truckId, rec) => {
+    try { const saved = await db.insertHistory({ truckId, by: user.name, ...rec }, user); setHistory((arr) => [saved, ...arr]); showToast('Service record added'); go('truck', truckId); }
+    catch (e) { fail('Could not add service record', e); }
+  };
 
   const Tweaks = (
     <TweaksPanel>
@@ -158,21 +211,22 @@ export default function App() {
     </TweaksPanel>
   );
 
-  if (!user) return <PhoneFrame brandFont={FONTS[t.font]}><Login onLogin={(u) => { setUser(u); setFleet('ALL'); go('dashboard'); }} />{Tweaks}</PhoneFrame>;
+  if (!user) return <PhoneFrame brandFont={FONTS[t.font]}><Login onLogin={async (u) => { setUser(u); setFleet('ALL'); go('dashboard'); await loadData(); }} />{Tweaks}</PhoneFrame>;
 
-  const canEdit = true;
+  const canEdit = true;            // operational actions (checks, issues, parts) — any signed-in user
+  const isAdmin = !!user.admin;    // truck create/edit + invoices/fleets — admins only
   let screen;
   switch (route.name) {
-    case 'trucks': screen = <Trucks fleet={fleet} multiFleet={multiFleet} fleetIds={myFleets} trucks={vTrucks} go={go} canEdit={canEdit} />; break;
-    case 'newtruck': screen = <NewTruck fleetIds={myFleets} onSave={addTruck} go={go} />; break;
-    case 'truck': { const tr = trucks.find((x) => x.id === route.param); screen = tr ? <TruckDetail truck={tr} issues={issues} usage={usage} parts={parts} history={history} go={go} onToggleOOS={toggleOOS} canEdit={canEdit} /> : <Trucks fleet={fleet} multiFleet={multiFleet} fleetIds={myFleets} trucks={vTrucks} go={go} canEdit={canEdit} />; break; }
+    case 'trucks': screen = <Trucks fleet={fleet} multiFleet={multiFleet} fleetIds={myFleets} trucks={vTrucks} go={go} canEdit={isAdmin} />; break;
+    case 'newtruck': screen = isAdmin ? <NewTruck fleetIds={myFleets} onSave={addTruck} go={go} /> : <Trucks fleet={fleet} multiFleet={multiFleet} fleetIds={myFleets} trucks={vTrucks} go={go} canEdit={isAdmin} />; break;
+    case 'truck': { const tr = trucks.find((x) => x.id === route.param); screen = tr ? <TruckDetail truck={tr} issues={issues} usage={usage} parts={parts} history={history} go={go} onToggleOOS={toggleOOS} canEdit={canEdit} canEditTruck={isAdmin} /> : <Trucks fleet={fleet} multiFleet={multiFleet} fleetIds={myFleets} trucks={vTrucks} go={go} canEdit={isAdmin} />; break; }
     case 'issues': screen = <Issues trucks={trucks} issues={vIssues} go={go} canEdit={canEdit} />; break;
     case 'newissue': screen = <NewIssue trucks={vTrucks} preTruck={route.param} onSave={saveIssue} go={go} />; break;
     case 'inventory': screen = <Inventory parts={vParts} multiFleet={multiFleet} fleetIds={myFleets} go={go} onAdjust={adjustPart} canEdit={canEdit} />; break;
     case 'newpart': screen = <NewPart fleetIds={myFleets} onSave={addPart} go={go} />; break;
     case 'newcheck': screen = <NewCheck truck={trucks.find((x) => x.id === route.param)} onSave={saveCheck} go={go} />; break;
     case 'usepart': screen = <NewUsage truck={trucks.find((x) => x.id === route.param)} parts={vParts} onSave={recordUsage} go={go} />; break;
-    case 'editdocs': screen = <EditDocs truck={trucks.find((x) => x.id === route.param)} onSave={updateTruckDocs} go={go} />; break;
+    case 'editdocs': screen = isAdmin ? <EditDocs truck={trucks.find((x) => x.id === route.param)} onSave={updateTruckDocs} go={go} /> : <TruckDetail truck={trucks.find((x) => x.id === route.param)} issues={issues} usage={usage} parts={parts} history={history} go={go} onToggleOOS={toggleOOS} canEdit={canEdit} canEditTruck={isAdmin} />; break;
     case 'newservice': screen = <NewService truck={trucks.find((x) => x.id === route.param)} onSave={addService} go={go} />; break;
     case 'reports': screen = <Reports trucks={vTrucks} issues={vIssues} parts={vParts} fleet={fleet} go={go} />; break;
     case 'weeklyreports': screen = <WeeklyReports inspections={vInspections} trucks={trucks} go={go} />; break;
