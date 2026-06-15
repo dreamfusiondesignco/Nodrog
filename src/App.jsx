@@ -120,7 +120,7 @@ export default function App() {
   const showToast = (m) => { setToast(m); clearTimeout(window.__tt); window.__tt = setTimeout(() => setToast(''), 2400); };
 
   const today = new Date().toISOString().slice(0, 10);
-  const fail = (msg, e) => showToast(`${msg}${e?.message ? ': ' + e.message : ''}`);
+  const fail = (msg, e) => { console.error(msg, e); showToast(`${msg}${e?.message ? ': ' + e.message : ''}`); };
 
   const addTruck = async (d) => {
     const odo = +d.odometer || 0;
@@ -144,11 +144,11 @@ export default function App() {
   const saveIssue = async ({ truckId, title, detail, severity, serious, oos, partsNeeded, media }) => {
     try {
       const tr = trucks.find((t2) => t2.id === truckId);
-      const photos = await db.uploadMedia(media || [], user.id);
+      const { items: photos, failed } = await db.uploadMedia(media || [], user.id);
       const saved = await db.insertIssue({ fleet: tr.fleet, truckId, title, detail, severity, status: 'open', date: today, by: user.name, serious, oos, partsNeeded, photos }, user);
       setIssues((arr) => [saved, ...arr]);
       if (oos) { await db.patchTruck(truckId, { status: 'oos' }); setTrucks((arr) => arr.map((t2) => t2.id === truckId ? { ...t2, status: 'oos' } : t2)); }
-      showToast(oos ? 'Issue saved · truck taken out of service' : 'Issue logged');
+      showToast(failed ? `Issue saved · ${failed} photo(s) couldn't upload` : (oos ? 'Issue saved · truck taken out of service' : 'Issue logged'));
       go(route.param ? 'truck' : 'issues', route.param);
     } catch (e) { fail('Could not save issue', e); }
   };
@@ -156,7 +156,7 @@ export default function App() {
     try {
       const tr = trucks.find((x) => x.id === truckId);
       const attn = payload.attn || 0;
-      const media = await db.uploadMedia(payload.media || [], user.id);
+      const { items: media } = await db.uploadMedia(payload.media || [], user.id);
       const saved = await db.insertInspection({ truckId, fleet: tr.fleet, date: today, by: user.name, attn, missing: payload.missing || '', general: payload.general || '', results: payload.results || {}, notes: payload.notes || {}, media }, user);
       setInspections((arr) => [saved, ...arr]);
       const status = tr.status === 'oos' ? 'oos' : (attn ? 'due' : 'ok');

@@ -80,11 +80,12 @@ async function dataUrlToBlob(dataUrl) {
   return res.blob();
 }
 // items: [{ type:'image'|'video', url, name }]. Uploads any data-URL items to Storage,
-// returns items with durable public URLs. http(s) URLs pass through untouched.
+// returns { items, failed }: items get durable public URLs; failures are dropped (never
+// embedded as base64 in the DB) and counted. http(s) URLs pass through untouched.
 export async function uploadMedia(items, userId) {
-  if (!items || !items.length) return [];
-  if (!live()) return items; // local mode: keep data URLs
-  const out = [];
+  if (!items || !items.length) return { items: [], failed: 0 };
+  if (!live()) return { items, failed: 0 }; // local mode: keep data URLs (single device)
+  const out = []; let failed = 0; let lastError = null;
   for (const m of items) {
     if (!m || !m.url) continue;
     if (/^https?:\/\//.test(m.url)) { out.push(m); continue; }
@@ -95,12 +96,13 @@ export async function uploadMedia(items, userId) {
       const { error } = await supabase.storage.from('media').upload(path, blob, {
         contentType: m.type === 'video' ? blob.type || 'video/mp4' : 'image/jpeg', upsert: false,
       });
-      if (error) { out.push(m); continue; }
+      if (error) { failed++; lastError = error; continue; } // do NOT embed base64 in the DB
       const { data } = supabase.storage.from('media').getPublicUrl(path);
       out.push({ type: m.type, url: data.publicUrl, name: m.name || '' });
-    } catch { out.push(m); }
+    } catch (e) { failed++; lastError = e; }
   }
-  return out;
+  if (lastError) console.error('Media upload failed (is the "media" Storage bucket created & public?):', lastError.message || lastError);
+  return { items: out, failed };
 }
 
 // ───────────────────────── inserts / updates ─────────────────────────

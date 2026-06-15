@@ -105,13 +105,8 @@ create policy "admin write invoices" on public.invoices for all
 
 -- ============================================================================
 -- STORAGE (photos & videos)
--- In Supabase → Storage, create a bucket called 'media' (private).
--- Then add policies so authenticated users can upload/read. Example:
---
---   create policy "auth read media"  on storage.objects for select
---     using ( bucket_id = 'media' and auth.role() = 'authenticated' );
---   create policy "auth write media" on storage.objects for insert
---     with check ( bucket_id = 'media' and auth.role() = 'authenticated' );
---
--- Store the returned object path on the issue/inspection/truck row.
+-- Create a bucket called 'media' in Supabase → Storage with **Public bucket ON**
+-- (public is required so uploaded images display across devices via public URLs).
+-- Then run supabase/storage_media.sql to add the upload/read policies.
+-- The app stores the returned public URL on the issue/inspection/truck row.
 -- ============================================================================
