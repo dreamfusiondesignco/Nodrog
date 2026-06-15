@@ -315,13 +315,25 @@ export function TruckDetail({ truck, issues, usage, parts, history, go, onToggle
             </div>
             <div style={{ fontSize: 12, color: C.mutedFg }}>{i.by} · {fmtDate(i.date)}</div>
           </div>
-          <Badge color={i.status === 'open' ? C.danger : C.ok}>{i.status}</Badge>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Badge color={i.status === 'open' ? C.danger : C.ok}>{i.status}</Badge>
+            {canEdit && <button onClick={() => go('editissue', i.id)} aria-label="Edit issue" style={{ width: 34, height: 34, borderRadius: 9, border: `1px solid ${C.border}`, background: C.surface, color: C.mutedFg, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Icon name="edit" size={16} /></button>}
+          </div>
         </div>
         {i.detail && <p style={{ fontSize: 13.5, color: C.fg, margin: '9px 0 0', lineHeight: 1.45 }}>{i.detail}</p>}
         <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap', alignItems: 'center' }}>
           <Badge color={sevColor(i.severity)}>{i.severity}</Badge>
           {i.oos && <Badge color={C.crit} solid><Icon name="ban" size={12} /> OUT OF SERVICE</Badge>}
         </div>
+        {Array.isArray(i.photos) && i.photos.some((m) => m && m.url) && (
+          <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+            {i.photos.filter((m) => m && m.url).map((m, idx) => (
+              <div key={idx} style={{ width: 56, height: 56, borderRadius: 10, overflow: 'hidden', border: `1px solid ${C.border}`, background: C.surface2 }}>
+                {m.type === 'video' ? <video src={m.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted playsInline /> : <img src={m.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     );
   };

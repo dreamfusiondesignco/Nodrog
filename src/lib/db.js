@@ -156,6 +156,26 @@ export async function insertIssue(i, user) {
   if (error) throw error;
   return issueFromRow(data);
 }
+export async function updateIssue(id, fields) {
+  if (!live()) return;
+  const row = {};
+  if ('title' in fields) row.title = fields.title;
+  if ('detail' in fields) row.detail = fields.detail;
+  if ('severity' in fields) row.severity = fields.severity;
+  if ('status' in fields) row.status = fields.status;
+  if ('serious' in fields) row.serious = fields.serious;
+  if ('oos' in fields) row.oos = fields.oos;
+  if ('partsNeeded' in fields) row.parts_needed = fields.partsNeeded;
+  if ('photos' in fields) row.media = fields.photos || [];
+  if (!Object.keys(row).length) return;
+  const { error } = await supabase.from('issues').update(row).eq('id', id);
+  if (error) throw error;
+}
+export async function deleteIssue(id) {
+  if (!live()) return;
+  const { error } = await supabase.from('issues').delete().eq('id', id);
+  if (error) throw error;
+}
 export async function insertInspection(x, user) {
   if (!live()) return { ...x, id: newId('r') };
   const { data, error } = await supabase.from('inspections').insert(inspToRow(x, user)).select().single();

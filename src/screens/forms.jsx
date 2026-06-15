@@ -3,7 +3,7 @@ import { fleetRegistry, INSPECT_SINGLE, INSPECT_POSITIONS, INSPECT_POSITION_CATS
 import { C, Icon, Badge, cardStyle, rowStyle, Field, Select, PrimaryBtn, GhostBtn, Header, PhotoSlot, MediaSlot, MediaUpload, SectionTitle, sevColor, fmtDate } from '../ui.jsx';
 import { FleetChip, Chip, EmptyNote } from './core.jsx';
 
-export function IssueCard({ issue, truckPlate, compact }) {
+export function IssueCard({ issue, truckPlate, compact, onEdit }) {
   const i = issue;
   return (
     <div style={{ ...cardStyle(), padding: 14, borderColor: i.oos ? C.crit : C.border, borderWidth: i.oos ? 1.5 : 1 }}>
@@ -15,7 +15,10 @@ export function IssueCard({ issue, truckPlate, compact }) {
           </div>
           <div style={{ fontSize: 12, color: C.mutedFg, lineHeight: 1.4 }}>{truckPlate ? truckPlate + ' · ' : ''}{i.by} · {fmtDate(i.date)}</div>
         </div>
-        <Badge color={i.status === 'open' ? C.danger : C.ok}>{i.status}</Badge>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Badge color={i.status === 'open' ? C.danger : C.ok}>{i.status}</Badge>
+          {onEdit && <button onClick={onEdit} aria-label="Edit issue" style={{ width: 34, height: 34, borderRadius: 9, border: `1px solid ${C.border}`, background: C.surface, color: C.mutedFg, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Icon name="edit" size={16} /></button>}
+        </div>
       </div>
       {i.detail && <p style={{ fontSize: 13.5, color: C.fg, margin: '9px 0 0', lineHeight: 1.45 }}>{i.detail}</p>}
       <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -59,7 +62,7 @@ export function Issues({ trucks, issues, go, canEdit }) {
           ))}
         </div>
         {list.length === 0 && <EmptyNote icon="checkc">Nothing here.</EmptyNote>}
-        {list.map((i) => <IssueCard key={i.id} issue={i} truckPlate={plate(i.truckId)} />)}
+        {list.map((i) => <IssueCard key={i.id} issue={i} truckPlate={plate(i.truckId)} onEdit={canEdit ? () => go('editissue', i.id) : undefined} />)}
         <div style={{ height: 8 }} />
       </div>
     </div>
@@ -109,6 +112,62 @@ export function NewIssue({ trucks, preTruck, onSave, go }) {
           onClick={() => onSave({ truckId, title, detail, severity, serious, oos, partsNeeded, media })}>
           <Icon name="check" size={18} /> {oos ? 'Save & take out of service' : 'Save issue'}
         </PrimaryBtn>
+      </div>
+    </div>
+  );
+}
+
+export function EditIssue({ issue, trucks, onSave, onDelete, go }) {
+  const truck = trucks.find((t) => t.id === issue.truckId);
+  const [title, setTitle] = useState(issue.title || '');
+  const [detail, setDetail] = useState(issue.detail || '');
+  const [severity, setSeverity] = useState(issue.severity || 'medium');
+  const [status, setStatus] = useState(issue.status || 'open');
+  const [serious, setSerious] = useState(!!issue.serious);
+  const [oos, setOos] = useState(!!issue.oos);
+  const [partsNeeded, setPartsNeeded] = useState(issue.partsNeeded || '');
+  const [media, setMedia] = useState(Array.isArray(issue.photos) ? issue.photos.filter((m) => m && m.url) : []);
+  const sevs = ['low', 'medium', 'high', 'critical'];
+  return (
+    <div>
+      <Header title="Edit issue" sub={truck ? `${truck.plate} · ${truck.model}` : ''} onBack={() => go('issues')} />
+      <div style={{ padding: '0 16px 24px' }}>
+        <Field label="What's the problem?" value={title} onChange={(e) => setTitle(e.target.value)} />
+        <label style={{ display: 'block', marginBottom: 14 }}>
+          <span style={{ display: 'block', fontSize: 13, fontWeight: 700, marginBottom: 6, color: C.fg }}>Details</span>
+          <textarea value={detail} onChange={(e) => setDetail(e.target.value)} rows={3} style={{ width: '100%', borderRadius: 11, border: `1px solid ${C.border}`, padding: 12, fontSize: 16, boxSizing: 'border-box', resize: 'vertical', background: C.surface, color: C.fg, fontFamily: 'inherit' }} />
+        </label>
+
+        <span style={{ display: 'block', fontSize: 13, fontWeight: 700, marginBottom: 6, color: C.fg }}>Status</span>
+        <div style={{ display: 'flex', gap: 7, marginBottom: 16 }}>
+          {[['open', 'Open'], ['resolved', 'Resolved']].map(([k, l]) => (
+            <button key={k} onClick={() => setStatus(k)} style={{ flex: 1, minHeight: 46, borderRadius: 11, cursor: 'pointer', fontWeight: 700, fontSize: 13.5,
+              border: `1.5px solid ${status === k ? (k === 'open' ? C.danger : C.ok) : C.border}`, background: status === k ? (k === 'open' ? C.danger : C.ok) + '1A' : C.surface, color: status === k ? (k === 'open' ? C.danger : C.ok) : C.mutedFg }}>{l}</button>
+          ))}
+        </div>
+
+        <span style={{ display: 'block', fontSize: 13, fontWeight: 700, marginBottom: 6, color: C.fg }}>Severity</span>
+        <div style={{ display: 'flex', gap: 7, marginBottom: 16 }}>
+          {sevs.map((s) => (
+            <button key={s} onClick={() => setSeverity(s)} style={{ flex: 1, minHeight: 46, borderRadius: 11, cursor: 'pointer', fontWeight: 700, textTransform: 'capitalize', fontSize: 13,
+              border: `1.5px solid ${severity === s ? sevColor(s) : C.border}`, background: severity === s ? sevColor(s) + '1A' : C.surface, color: severity === s ? sevColor(s) : C.mutedFg }}>{s}</button>
+          ))}
+        </div>
+
+        <span style={{ display: 'block', fontSize: 13, fontWeight: 700, marginBottom: 6, color: C.fg }}>Photos &amp; video</span>
+        <div style={{ marginBottom: 16 }}><MediaUpload value={media} onChange={setMedia} maxPhotos={8} allowVideo /></div>
+
+        <ToggleRow label="Serious issue" desc="Flag for supervisor — needs parts or major repair" value={serious} onChange={setSerious} color={C.warn} />
+        <ToggleRow label="Truck out of service" desc="Vehicle removed from duty until fixed" value={oos} onChange={setOos} color={C.crit} />
+        {serious && <Field label="What's needed to fix it?" value={partsNeeded} onChange={(e) => setPartsNeeded(e.target.value)} placeholder="e.g. Center bolt + U-bolt set" />}
+
+        <PrimaryBtn disabled={!title.trim()} onClick={() => onSave(issue.id, { title, detail, severity, status, serious, oos, partsNeeded, media })}>
+          <Icon name="check" size={18} /> Save changes
+        </PrimaryBtn>
+        <button onClick={() => { if (confirm('Delete this issue? This cannot be undone.')) onDelete(issue.id); }}
+          style={{ width: '100%', marginTop: 12, minHeight: 48, borderRadius: 13, cursor: 'pointer', fontWeight: 800, fontSize: 14, border: `1.5px solid ${C.danger}`, background: C.danger + '12', color: C.danger, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+          <Icon name="x" size={17} /> Delete issue
+        </button>
       </div>
     </div>
   );

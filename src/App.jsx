@@ -5,7 +5,7 @@ import { restoreSession, signOut as authSignOut } from './lib/auth.js';
 import * as db from './lib/db.js';
 import { C, applyTheme, PhoneFrame, Icon, InstallPrompt } from './ui.jsx';
 import { Logo, Login, Dashboard, Trucks, TruckDetail, NewTruck } from './screens/core.jsx';
-import { IssueCard, Issues, NewIssue, Inventory, NewCheck, Reports } from './screens/forms.jsx';
+import { IssueCard, Issues, NewIssue, EditIssue, Inventory, NewCheck, Reports } from './screens/forms.jsx';
 import { MoreHub, NewPart, ManageFleets, WeeklyReports, ReportDetail, Invoices, InvoiceDetail, NewInvoice, NewUsage, EditDocs, NewService } from './screens/admin.jsx';
 import { useTweaks, TweaksPanel, TweakSection, TweakRadio, TweakColor } from './tweaks-panel.jsx';
 
@@ -147,10 +147,35 @@ export default function App() {
       const { items: photos, failed } = await db.uploadMedia(media || [], user.id);
       const saved = await db.insertIssue({ fleet: tr.fleet, truckId, title, detail, severity, status: 'open', date: today, by: user.name, serious, oos, partsNeeded, photos }, user);
       setIssues((arr) => [saved, ...arr]);
-      if (oos) { await db.patchTruck(truckId, { status: 'oos' }); setTrucks((arr) => arr.map((t2) => t2.id === truckId ? { ...t2, status: 'oos' } : t2)); }
-      showToast(failed ? `Issue saved · ${failed} photo(s) couldn't upload` : (oos ? 'Issue saved · truck taken out of service' : 'Issue logged'));
-      go(route.param ? 'truck' : 'issues', route.param);
+      if (oos) {
+        // optimistic + non-blocking so a slow/failed truck update never blocks navigation
+        setTrucks((arr) => arr.map((t2) => t2.id === truckId ? { ...t2, status: 'oos' } : t2));
+        db.patchTruck(truckId, { status: 'oos' }).catch((e) => console.error('OOS truck update failed', e));
+      }
+      showToast(failed ? `Issue saved · ${failed} photo(s) couldn't upload` : (oos ? 'Issue saved · truck out of service' : 'Issue logged'));
+      go('issues');
     } catch (e) { fail('Could not save issue', e); }
+  };
+  const editIssue = async (id, fields) => {
+    try {
+      let { media, ...rest } = fields;
+      let failed = 0;
+      if (media) { const r = await db.uploadMedia(media, user.id); media = r.items; failed = r.failed; }
+      const patch = { ...rest };
+      if (media) patch.photos = media;
+      setIssues((arr) => arr.map((i) => i.id === id ? { ...i, ...patch } : i));
+      await db.updateIssue(id, patch);
+      // if marked OOS in the edit, reflect it on the truck (non-blocking)
+      const iss = issues.find((x) => x.id === id);
+      if (patch.oos && iss) { setTrucks((arr) => arr.map((t2) => t2.id === iss.truckId ? { ...t2, status: 'oos' } : t2)); db.patchTruck(iss.truckId, { status: 'oos' }).catch((e) => console.error(e)); }
+      showToast(failed ? `Issue updated · ${failed} photo(s) couldn't upload` : 'Issue updated');
+      go('issues');
+    } catch (e) { fail('Could not update issue', e); }
+  };
+  const removeIssue = async (id) => {
+    setIssues((arr) => arr.filter((i) => i.id !== id));
+    try { await db.deleteIssue(id); showToast('Issue deleted'); } catch (e) { fail('Could not delete issue', e); }
+    go('issues');
   };
   const saveCheck = async (truckId, payload) => {
     try {
@@ -160,8 +185,8 @@ export default function App() {
       const saved = await db.insertInspection({ truckId, fleet: tr.fleet, date: today, by: user.name, attn, missing: payload.missing || '', general: payload.general || '', results: payload.results || {}, notes: payload.notes || {}, media }, user);
       setInspections((arr) => [saved, ...arr]);
       const status = tr.status === 'oos' ? 'oos' : (attn ? 'due' : 'ok');
-      await db.patchTruck(truckId, { status, lastCheck: today });
       setTrucks((arr) => arr.map((x) => x.id === truckId ? { ...x, status, lastCheck: today } : x));
+      db.patchTruck(truckId, { status, lastCheck: today }).catch((e) => console.error('Truck status update failed', e));
       showToast(attn ? `Check saved · ${attn} item(s) flagged` : 'Weekly check completed');
       go('truck', truckId);
     } catch (e) { fail('Could not save check', e); }
@@ -239,6 +264,7 @@ export default function App() {
     case 'truck': { const tr = trucks.find((x) => x.id === route.param); screen = tr ? <TruckDetail truck={tr} issues={issues} usage={usage} parts={parts} history={history} go={go} onToggleOOS={toggleOOS} canEdit={canEdit} canEditTruck={isAdmin} /> : <Trucks fleet={fleet} multiFleet={multiFleet} fleetIds={myFleets} trucks={vTrucks} go={go} canEdit={isAdmin} />; break; }
     case 'issues': screen = <Issues trucks={trucks} issues={vIssues} go={go} canEdit={canEdit} />; break;
     case 'newissue': screen = <NewIssue trucks={vTrucks} preTruck={route.param} onSave={saveIssue} go={go} />; break;
+    case 'editissue': { const iss = issues.find((x) => x.id === route.param); screen = iss ? <EditIssue issue={iss} trucks={trucks} onSave={editIssue} onDelete={removeIssue} go={go} /> : <Issues trucks={trucks} issues={vIssues} go={go} canEdit={canEdit} />; break; }
     case 'inventory': screen = <Inventory parts={vParts} multiFleet={multiFleet} fleetIds={myFleets} go={go} onAdjust={adjustPart} canEdit={canEdit} />; break;
     case 'newpart': screen = <NewPart fleetIds={myFleets} onSave={addPart} go={go} />; break;
     case 'newcheck': screen = <NewCheck truck={trucks.find((x) => x.id === route.param)} onSave={saveCheck} go={go} />; break;
