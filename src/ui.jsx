@@ -180,7 +180,7 @@ export function MediaSlot({ label, kind = "photo" }) {
 }
 
 // Downscale an image File to a JPEG data URL (keeps localStorage/payloads small).
-function fileToScaledImage(file, maxDim = 1280, quality = 0.8) {
+export function fileToScaledImage(file, maxDim = 1280, quality = 0.8) {
   return new Promise((resolve) => {
     const reader = new FileReader();
     reader.onload = (e) => {
