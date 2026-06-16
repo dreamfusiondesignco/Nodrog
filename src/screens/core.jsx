@@ -263,6 +263,12 @@ export function Dashboard({ user, fleet, trucks, issues, parts, go }) {
   );
 }
 
+const trkSelect = () => ({
+  flex: 1, minWidth: 0, minHeight: 44, borderRadius: 11, border: `1px solid ${C.border}`,
+  padding: '0 12px', fontSize: 14, fontWeight: 700, background: C.surface, color: C.fg,
+  boxSizing: 'border-box', cursor: 'pointer',
+});
+
 export function Trucks({ fleet, multiFleet, fleetIds = ['IGL', 'MASSY'], trucks, go, canEdit = true }) {
   const [q, setQ] = useState('');
   const [f, setF] = useState('ALL');
@@ -283,7 +289,6 @@ export function Trucks({ fleet, multiFleet, fleetIds = ['IGL', 'MASSY'], trucks,
   );
   const filtering = query || f !== 'ALL' || status !== 'all';
   const sub = filtering ? `${list.length} of ${trucks.length} vehicles` : `${trucks.length} vehicle${trucks.length !== 1 ? 's' : ''}`;
-  const statusChips = [['all', 'All'], ['attn', 'Needs attention'], ['oos', 'Out of service'], ['ok', 'Up to date']];
 
   return (
     <div>
@@ -297,7 +302,7 @@ export function Trucks({ fleet, multiFleet, fleetIds = ['IGL', 'MASSY'], trucks,
             <div style={{ position: 'relative' }}>
               <span style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)', color: C.mutedFg, pointerEvents: 'none' }}><Icon name="search" size={18} /></span>
               <input value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search trucks" inputMode="search"
-                placeholder="Search plate, model, driver, location…"
+                placeholder="Search by plate or driver name…"
                 style={{ width: '100%', minHeight: 48, padding: q ? '0 42px 0 40px' : '0 14px 0 40px', borderRadius: 11, border: `1px solid ${C.border}`, fontSize: 16, boxSizing: 'border-box', background: C.surface, color: C.fg }} />
               {q && (
                 <button onClick={() => setQ('')} aria-label="Clear search" style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', width: 34, height: 34, borderRadius: 999, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.mutedFg }}>
@@ -305,13 +310,19 @@ export function Trucks({ fleet, multiFleet, fleetIds = ['IGL', 'MASSY'], trucks,
                 </button>
               )}
             </div>
-            {multiFleet && (
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {['ALL', ...fleetIds].map((k) => <Chip key={k} active={f === k} onClick={() => setF(k)} small>{k === 'ALL' ? 'All fleets' : (fleetRegistry[k]?.name || k)}</Chip>)}
-              </div>
-            )}
-            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 2, margin: '0 -16px', padding: '0 16px 2px' }}>
-              {statusChips.map(([k, l]) => <Chip key={k} active={status === k} onClick={() => setStatus(k)} small>{l}</Chip>)}
+            <div style={{ display: 'flex', gap: 10 }}>
+              {multiFleet && (
+                <select value={f} onChange={(e) => setF(e.target.value)} aria-label="Fleet" style={trkSelect()}>
+                  <option value="ALL">All fleets</option>
+                  {fleetIds.map((k) => <option key={k} value={k}>{fleetRegistry[k]?.name || k}</option>)}
+                </select>
+              )}
+              <select value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Status" style={trkSelect()}>
+                <option value="all">All trucks</option>
+                <option value="attn">Needs attention</option>
+                <option value="oos">Out of service</option>
+                <option value="ok">Up to date</option>
+              </select>
             </div>
           </>
         )}
