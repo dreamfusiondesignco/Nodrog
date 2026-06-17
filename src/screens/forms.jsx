@@ -3,10 +3,10 @@ import { fleetRegistry, INSPECT_SINGLE, INSPECT_POSITIONS, INSPECT_POSITION_CATS
 import { C, Icon, Badge, cardStyle, rowStyle, Field, Select, PrimaryBtn, GhostBtn, Header, PhotoSlot, MediaSlot, MediaUpload, SectionTitle, sevColor, fmtDate } from '../ui.jsx';
 import { FleetChip, Chip, EmptyNote } from './core.jsx';
 
-export function IssueCard({ issue, truckPlate, compact, onEdit }) {
+export function IssueCard({ issue, truckPlate, compact, onEdit, selectable, selected, onToggle }) {
   const i = issue;
   return (
-    <div style={{ ...cardStyle(), padding: 14, borderColor: i.oos ? C.crit : C.border, borderWidth: i.oos ? 1.5 : 1 }}>
+    <div onClick={selectable ? onToggle : undefined} style={{ ...cardStyle(), padding: 14, borderColor: selected ? C.accent : i.oos ? C.crit : C.border, borderWidth: (i.oos || selected) ? 1.5 : 1, cursor: selectable ? 'pointer' : 'default' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 800, color: C.fg, fontSize: 15, lineHeight: 1.3, marginBottom: 4, textWrap: 'pretty' }}>
@@ -17,7 +17,9 @@ export function IssueCard({ issue, truckPlate, compact, onEdit }) {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <Badge color={i.status === 'open' ? C.danger : C.ok}>{i.status}</Badge>
-          {onEdit && <button onClick={onEdit} aria-label="Edit issue" style={{ width: 34, height: 34, borderRadius: 9, border: `1px solid ${C.border}`, background: C.surface, color: C.mutedFg, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Icon name="edit" size={16} /></button>}
+          {selectable
+            ? <span style={{ width: 26, height: 26, borderRadius: 999, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `2px solid ${selected ? C.accent : C.border}`, background: selected ? C.accent : C.surface }}>{selected && <Icon name="check" size={15} color="#fff" />}</span>
+            : (onEdit && <button onClick={onEdit} aria-label="Edit issue" style={{ width: 34, height: 34, borderRadius: 9, border: `1px solid ${C.border}`, background: C.surface, color: C.mutedFg, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Icon name="edit" size={16} /></button>)}
         </div>
       </div>
       {i.detail && <p style={{ fontSize: 13.5, color: C.fg, margin: '9px 0 0', lineHeight: 1.45 }}>{i.detail}</p>}
@@ -47,24 +49,75 @@ export function IssueCard({ issue, truckPlate, compact, onEdit }) {
   );
 }
 
-export function Issues({ trucks, issues, go, canEdit }) {
+const issueSelect = () => ({ width: '100%', minHeight: 44, borderRadius: 11, border: `1px solid ${C.border}`, padding: '0 12px', fontSize: 14, fontWeight: 700, background: C.surface, color: C.fg, boxSizing: 'border-box', cursor: 'pointer' });
+
+export function Issues({ trucks, issues, go, canEdit, onDelete }) {
   const [filter, setFilter] = useState('open');
-  const plate = (id) => trucks.find((t) => t.id === id)?.plate || '—';
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState(() => new Set());
+
   const list = issues.filter((i) => filter === 'all' ? true : filter === 'serious' ? (i.serious && i.status === 'open') : i.status === filter);
+
+  // Group the filtered issues under their truck.
+  const groups = React.useMemo(() => {
+    const m = new Map();
+    list.forEach((i) => { if (!m.has(i.truckId)) m.set(i.truckId, []); m.get(i.truckId).push(i); });
+    return [...m.entries()]
+      .map(([truckId, items]) => ({ truckId, items, truck: trucks.find((t) => t.id === truckId) }))
+      .sort((a, b) => (a.truck?.plate || 'zz').localeCompare(b.truck?.plate || 'zz'));
+  }, [list, trucks]);
+
+  const allIds = list.map((i) => i.id);
+  const allSelected = allIds.length > 0 && allIds.every((id) => selected.has(id));
+  const toggle = (id) => setSelected((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const selectAll = () => setSelected(allSelected ? new Set() : new Set(allIds));
+  const exitSelect = () => { setSelectMode(false); setSelected(new Set()); };
+  const doDelete = () => {
+    if (!selected.size) return;
+    if (confirm(`Delete ${selected.size} issue${selected.size > 1 ? 's' : ''}? This cannot be undone.`)) { onDelete([...selected]); exitSelect(); }
+  };
+
+  const openCount = issues.filter((i) => i.status === 'open').length;
+  const filters = [['open', 'Open'], ['serious', 'Serious'], ['resolved', 'Resolved'], ['all', 'All']];
+
   return (
     <div>
-      <Header title="Issues" sub={`${issues.filter((i) => i.status === 'open').length} open`}
-        action={canEdit && <button onClick={() => go('newissue')} aria-label="New issue" style={{ minWidth: 42, minHeight: 42, borderRadius: 12, border: 'none', background: C.accent, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name="plus" size={20} color="#fff" /></button>} />
+      <Header title="Issues" sub={selectMode ? `${selected.size} selected` : `${openCount} open`}
+        action={canEdit && (selectMode
+          ? <button onClick={exitSelect} style={{ minHeight: 42, padding: '0 14px', borderRadius: 11, border: `1px solid ${C.border}`, background: C.surface, color: C.fg, fontWeight: 800, fontSize: 13.5, cursor: 'pointer' }}>Cancel</button>
+          : <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => setSelectMode(true)} aria-label="Select issues" style={{ minWidth: 42, minHeight: 42, borderRadius: 12, border: `1px solid ${C.border}`, background: C.surface, color: C.mutedFg, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name="checkc" size={19} /></button>
+              <button onClick={() => go('newissue')} aria-label="New issue" style={{ minWidth: 42, minHeight: 42, borderRadius: 12, border: 'none', background: C.accent, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name="plus" size={20} color="#fff" /></button>
+            </div>)} />
       <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {[['open', 'Open'], ['serious', 'Serious'], ['resolved', 'Resolved'], ['all', 'All']].map(([k, l]) => (
-            <Chip key={k} active={filter === k} onClick={() => setFilter(k)} small>{l}</Chip>
-          ))}
-        </div>
-        {list.length === 0 && <EmptyNote icon="checkc">Nothing here.</EmptyNote>}
-        {list.map((i) => <IssueCard key={i.id} issue={i} truckPlate={plate(i.truckId)} onEdit={canEdit ? () => go('editissue', i.id) : undefined} />)}
+        <select value={filter} onChange={(e) => setFilter(e.target.value)} aria-label="Filter issues" style={issueSelect()}>
+          {filters.map(([k, l]) => <option key={k} value={k}>{l} issues</option>)}
+        </select>
+        {list.length === 0 && <EmptyNote icon="checkc">No {filter === 'all' ? '' : filter + ' '}issues.</EmptyNote>}
+        {groups.map((g) => (
+          <React.Fragment key={g.truckId}>
+            <button onClick={() => { if (!selectMode) go('truck', g.truckId); }} style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, padding: '2px 2px', background: 'transparent', border: 'none', width: '100%', textAlign: 'left', cursor: selectMode ? 'default' : 'pointer', font: 'inherit' }}>
+              <Icon name="truck" size={15} color={C.mutedFg} />
+              <span style={{ fontWeight: 800, fontSize: 14, color: C.fg }}>{g.truck?.plate || '—'}</span>
+              {g.truck && <FleetChip fleet={g.truck.fleet} />}
+              {g.truck?.model && <span style={{ fontSize: 12, color: C.mutedFg, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>{g.truck.model}</span>}
+              <span style={{ fontSize: 11, fontWeight: 800, color: C.mutedFg, background: C.surface2, borderRadius: 999, padding: '2px 8px', marginLeft: 'auto', flexShrink: 0 }}>{g.items.length}</span>
+            </button>
+            {g.items.map((i) => (
+              <IssueCard key={i.id} issue={i}
+                onEdit={canEdit ? () => go('editissue', i.id) : undefined}
+                selectable={selectMode} selected={selected.has(i.id)} onToggle={() => toggle(i.id)} />
+            ))}
+          </React.Fragment>
+        ))}
         <div style={{ height: 8 }} />
       </div>
+      {selectMode && (
+        <div style={{ position: 'sticky', bottom: 0, background: C.surface, borderTop: `1px solid ${C.border}`, padding: '10px 16px calc(10px + env(safe-area-inset-bottom))', display: 'flex', alignItems: 'center', gap: 10, boxShadow: '0 -6px 20px rgba(0,0,0,.12)' }}>
+          <button onClick={selectAll} disabled={!allIds.length} style={{ minHeight: 44, padding: '0 14px', borderRadius: 11, border: `1px solid ${C.border}`, background: C.surface, color: C.fg, fontWeight: 700, fontSize: 13.5, cursor: 'pointer', whiteSpace: 'nowrap' }}>{allSelected ? 'Clear' : 'Select all'}</button>
+          <button onClick={doDelete} disabled={!selected.size} style={{ flex: 1, minHeight: 46, borderRadius: 12, border: 'none', background: selected.size ? C.danger : C.border, color: '#fff', fontWeight: 800, fontSize: 14.5, cursor: selected.size ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}><Icon name="x" size={17} /> Delete{selected.size ? ` (${selected.size})` : ''}</button>
+        </div>
+      )}
     </div>
   );
 }

@@ -177,6 +177,13 @@ export default function App() {
     try { await db.deleteIssue(id); showToast('Issue deleted'); } catch (e) { fail('Could not delete issue', e); }
     go('issues');
   };
+  const removeIssues = async (ids) => {
+    if (!ids || !ids.length) return;
+    const set = new Set(ids);
+    setIssues((arr) => arr.filter((i) => !set.has(i.id)));
+    try { await Promise.all(ids.map((id) => db.deleteIssue(id))); showToast(`${ids.length} issue${ids.length > 1 ? 's' : ''} deleted`); }
+    catch (e) { fail('Could not delete issues', e); }
+  };
   const saveCheck = async (truckId, payload) => {
     try {
       const tr = trucks.find((x) => x.id === truckId);
@@ -280,7 +287,7 @@ export default function App() {
     case 'trucks': screen = <Trucks fleet={fleet} multiFleet={multiFleet} fleetIds={myFleets} trucks={vTrucks} go={go} canEdit={isAdmin} />; break;
     case 'newtruck': screen = isAdmin ? <NewTruck fleetIds={myFleets} onSave={addTruck} go={go} /> : <Trucks fleet={fleet} multiFleet={multiFleet} fleetIds={myFleets} trucks={vTrucks} go={go} canEdit={isAdmin} />; break;
     case 'truck': { const tr = trucks.find((x) => x.id === route.param); screen = tr ? <TruckDetail truck={tr} issues={issues} usage={usage} parts={parts} history={history} go={go} onToggleOOS={toggleOOS} onPhoto={setTruckPhoto} canEdit={canEdit} canEditTruck={isAdmin} /> : <Trucks fleet={fleet} multiFleet={multiFleet} fleetIds={myFleets} trucks={vTrucks} go={go} canEdit={isAdmin} />; break; }
-    case 'issues': screen = <Issues trucks={trucks} issues={vIssues} go={go} canEdit={canEdit} />; break;
+    case 'issues': screen = <Issues trucks={trucks} issues={vIssues} go={go} canEdit={canEdit} onDelete={removeIssues} />; break;
     case 'newissue': screen = <NewIssue trucks={vTrucks} preTruck={route.param} onSave={saveIssue} go={go} />; break;
     case 'editissue': { const iss = issues.find((x) => x.id === route.param); screen = iss ? <EditIssue issue={iss} trucks={trucks} onSave={editIssue} onDelete={removeIssue} go={go} /> : <Issues trucks={trucks} issues={vIssues} go={go} canEdit={canEdit} />; break; }
     case 'inventory': screen = <Inventory parts={vParts} multiFleet={multiFleet} fleetIds={myFleets} go={go} onAdjust={adjustPart} canEdit={canEdit} />; break;
