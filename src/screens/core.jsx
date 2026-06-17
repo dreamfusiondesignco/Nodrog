@@ -263,6 +263,16 @@ export function Dashboard({ user, fleet, trucks, issues, parts, go }) {
   );
 }
 
+// Engine-service due state from the interval (miles or idle hours).
+function serviceDue(t) {
+  const e = t.service?.engine || {};
+  const milesLeft = e.nextDueMiles != null ? e.nextDueMiles - (t.odometer || 0) : null;
+  const hrsLeft = e.nextDueHrs != null ? e.nextDueHrs - (t.idleHrs || 0) : null;
+  const overdue = (milesLeft != null && milesLeft <= 0) || (hrsLeft != null && hrsLeft <= 0);
+  const soon = !overdue && ((milesLeft != null && milesLeft <= 4000) || (hrsLeft != null && hrsLeft <= 300));
+  return { milesLeft, overdue, soon };
+}
+
 const trkSelect = () => ({
   flex: 1, minWidth: 0, minHeight: 44, borderRadius: 11, border: `1px solid ${C.border}`,
   padding: '0 12px', fontSize: 14, fontWeight: 700, background: C.surface, color: C.fg,
@@ -330,12 +340,19 @@ export function Trucks({ fleet, multiFleet, fleetIds = ['IGL', 'MASSY'], trucks,
           <EmptyNote icon="search">No trucks match {query ? `“${q.trim()}”` : 'these filters'}. <button onClick={() => { setQ(''); setF('ALL'); setStatus('all'); }} style={{ border: 'none', background: 'transparent', color: C.accent, fontWeight: 700, cursor: 'pointer', padding: 0, font: 'inherit' }}>Clear</button></EmptyNote>
         )}
         {list.map((t) => {
-          const milesLeft = (t.service?.engine?.nextDueMiles ?? 0) - (t.odometer || 0);
-          const attn = t.status !== 'ok';
+          const svc = serviceDue(t);
+          const milesLeft = svc.milesLeft;
           return (
             <button key={t.id} onClick={() => go('truck', t.id)} style={{ ...cardStyle(), padding: 0, overflow: 'hidden', textAlign: 'left', cursor: 'pointer', display: 'block', width: '100%', font: 'inherit', color: C.fg }}>
               <div style={{ display: 'flex', gap: 12, padding: 13, alignItems: 'center' }}>
-                <TruckThumb truck={t} />
+                <div style={{ position: 'relative', flexShrink: 0 }}>
+                  <TruckThumb truck={t} />
+                  {(svc.overdue || svc.soon) && (
+                    <span title={svc.overdue ? 'Service overdue' : 'Service due'} style={{ position: 'absolute', top: -5, right: -5, minWidth: 19, height: 19, padding: '0 4px', borderRadius: 999, background: svc.overdue ? C.crit : C.warn, border: `2px solid ${C.surface}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Icon name="wrench" size={11} color="#fff" />
+                    </span>
+                  )}
+                </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ fontWeight: 800, color: C.fg, fontSize: 16, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.plate}</span>
@@ -352,9 +369,9 @@ export function Trucks({ fleet, multiFleet, fleetIds = ['IGL', 'MASSY'], trucks,
                 </div>
                 <Icon name="chevron" size={18} color={C.mutedFg} style={{ flexShrink: 0 }} />
               </div>
-              <div style={{ padding: '9px 14px', borderTop: `1px solid ${C.border}`, background: attn ? statusColor(t.status) + '0E' : C.surface2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+              <div style={{ padding: '9px 14px', borderTop: `1px solid ${C.border}`, background: svc.overdue ? C.danger + '0E' : svc.soon ? C.warn + '0E' : C.surface2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
                 <span style={{ fontSize: 11.5, color: C.mutedFg, fontWeight: 600, whiteSpace: 'nowrap' }}>Next service</span>
-                <span style={{ fontSize: 12, fontWeight: 800, whiteSpace: 'nowrap', color: milesLeft <= 0 ? C.danger : milesLeft <= 4000 ? C.warn : C.ok }}>{milesLeft <= 0 ? 'Overdue' : `${fmtNum(milesLeft)} mi`}</span>
+                <span style={{ fontSize: 12, fontWeight: 800, whiteSpace: 'nowrap', color: svc.overdue ? C.danger : svc.soon ? C.warn : C.ok }}>{svc.overdue ? 'Overdue' : milesLeft != null ? `${fmtNum(Math.max(0, milesLeft))} mi` : '—'}</span>
               </div>
             </button>
           );
@@ -369,6 +386,7 @@ export function TruckDetail({ truck, issues, usage, parts, history, go, onToggle
   const [tab, setTab] = useState('service');
   const tIssues = issues.filter((i) => i.truckId === truck.id);
   const openIss = tIssues.filter((i) => i.status === 'open');
+  const pastIss = tIssues.filter((i) => i.status !== 'open').sort((a, b) => (b.date || '').localeCompare(a.date || ''));
   const tUsage = usage.filter((u) => u.truckId === truck.id);
   const tHist = history.filter((h) => h.truckId === truck.id);
   const partName = (id) => parts.find((p) => p.id === id)?.name || '—';
@@ -447,8 +465,8 @@ export function TruckDetail({ truck, issues, usage, parts, history, go, onToggle
           </button>
         </div>}
 
-        <div style={{ display: 'flex', gap: 7, marginTop: 2 }}>
-          {[['service', 'Service'], ['issues', `Issues${openIss.length ? ' ' + openIss.length : ''}`], ['history', 'History'], ['docs', 'Docs']].map(([k, l]) => (
+        <div style={{ display: 'flex', gap: 7, overflowX: 'auto', margin: '2px -16px 0', padding: '0 16px 2px' }}>
+          {[['service', 'Service'], ['issues', `Issues${openIss.length ? ' ' + openIss.length : ''}`], ['history', 'History'], ['svchistory', 'Service history'], ['docs', 'Docs']].map(([k, l]) => (
             <Chip key={k} active={tab === k} onClick={() => setTab(k)} small>{l}</Chip>
           ))}
         </div>
@@ -476,12 +494,17 @@ export function TruckDetail({ truck, issues, usage, parts, history, go, onToggle
         </div>}
 
         {tab === 'issues' && <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {tIssues.length === 0 && <EmptyNote icon="checkc">No issues logged.</EmptyNote>}
-          {tIssues.map((i) => <IssueCardInline key={i.id} issue={i} />)}
+          {openIss.length === 0 && <EmptyNote icon="checkc">No open issues.{pastIss.length ? ' See History for resolved ones.' : ''}</EmptyNote>}
+          {openIss.map((i) => <IssueCardInline key={i.id} issue={i} />)}
           {canEdit && <GhostBtn onClick={() => go('newissue', truck.id)} style={{ width: '100%' }}><Icon name="plus" size={16} /> Log an issue</GhostBtn>}
         </div>}
 
-        {tab === 'history' && <div>
+        {tab === 'history' && <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {pastIss.length === 0 && <EmptyNote icon="checkc">No past issues — nothing resolved yet.</EmptyNote>}
+          {pastIss.map((i) => <IssueCardInline key={i.id} issue={i} />)}
+        </div>}
+
+        {tab === 'svchistory' && <div>
           <div style={{ ...cardStyle(), padding: 4 }}>
             {tHist.length === 0 && <div style={{ padding: 12 }}><EmptyNote>No service history.</EmptyNote></div>}
             {tHist.map((h, i) => (
