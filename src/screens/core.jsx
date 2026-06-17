@@ -181,7 +181,14 @@ export function Dashboard({ user, fleet, trucks, issues, parts, go }) {
   const lowStock = parts.filter((p) => p.qty <= p.min).length;
   const dueChecks = trucks.filter((t) => t.status === 'due' || t.status === 'overdue').length;
   const oos = trucks.filter((t) => t.status === 'oos');
-  const attention = trucks.filter((t) => t.status !== 'ok').sort((a, b) => (a.status === 'oos' ? -1 : 0));
+  // Needs attention = inspection status not OK, OR engine service due/overdue.
+  const attention = trucks
+    .map((t) => ({ t, svc: serviceDue(t) }))
+    .filter((x) => x.t.status !== 'ok' || x.svc.overdue || x.svc.soon)
+    .sort((a, b) => {
+      const rank = (x) => x.t.status === 'oos' ? 0 : x.svc.overdue ? 1 : x.t.status !== 'ok' ? 2 : 3;
+      return rank(a) - rank(b);
+    });
 
   const reminders = [];
   trucks.forEach((t) => {
@@ -229,16 +236,25 @@ export function Dashboard({ user, fleet, trucks, issues, parts, go }) {
         </div>
         <SectionTitle>Needs attention</SectionTitle>
         {attention.length === 0 && <EmptyNote icon="checkc">All trucks up to date.</EmptyNote>}
-        {attention.map((t) => (
+        {attention.map(({ t, svc }) => (
           <button key={t.id} onClick={() => go('truck', t.id)} style={rowStyle()}>
-            <div style={{ width: 42, height: 42, borderRadius: 11, background: statusColor(t.status) + '18', display: 'flex', alignItems: 'center', justifyContent: 'center', color: statusColor(t.status) }}>
-              <Icon name={t.status === 'oos' ? 'ban' : 'truck'} size={20} />
+            <div style={{ position: 'relative', flexShrink: 0 }}>
+              <div style={{ width: 42, height: 42, borderRadius: 11, background: statusColor(t.status) + '18', display: 'flex', alignItems: 'center', justifyContent: 'center', color: statusColor(t.status) }}>
+                <Icon name={t.status === 'oos' ? 'ban' : 'truck'} size={20} />
+              </div>
+              {(svc.overdue || svc.soon) && (
+                <span title={svc.overdue ? 'Service overdue' : 'Service due'} style={{ position: 'absolute', top: -5, right: -5, minWidth: 18, height: 18, padding: '0 4px', borderRadius: 999, background: svc.overdue ? C.crit : C.warn, border: `2px solid ${C.surface}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Icon name="wrench" size={10} color="#fff" />
+                </span>
+              )}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontWeight: 800, color: C.fg }}>{t.plate} <FleetChip fleet={t.fleet} /></div>
               <div style={{ fontSize: 12, color: C.mutedFg }}>{t.model} · last check {fmtDate(t.lastCheck)}</div>
             </div>
-            <Badge color={statusColor(t.status)} solid={t.status === 'oos'}>{statusLabel(t.status)}</Badge>
+            {t.status !== 'ok'
+              ? <Badge color={statusColor(t.status)} solid={t.status === 'oos'}>{statusLabel(t.status)}</Badge>
+              : <Badge color={svc.overdue ? C.danger : C.warn}>{svc.overdue ? 'OVERDUE' : 'SERVICE DUE'}</Badge>}
           </button>
         ))}
         {reminders.length > 0 && <>

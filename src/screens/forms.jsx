@@ -251,18 +251,20 @@ export function Inventory({ parts, multiFleet, fleetIds = ['IGL', 'MASSY'], go, 
   const low = parts.filter((p) => p.qty <= p.min).length;
   return (
     <div>
-      <Header title="Inventory" sub={`${parts.length} parts · ${low} low`}
+      <Header title="Inventory" sub={q.trim() ? `${list.length} of ${parts.length} parts` : `${parts.length} parts · ${low} low`}
         action={canEdit && <button onClick={() => go('newpart')} aria-label="New part" style={{ minWidth: 42, minHeight: 42, borderRadius: 12, border: 'none', background: C.accent, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name="plus" size={20} color="#fff" /></button>} />
       <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div style={{ position: 'relative' }}>
-          <span style={{ position: 'absolute', left: 13, top: 13, color: C.mutedFg }}><Icon name="search" size={18} /></span>
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search parts or SKU" style={{ width: '100%', minHeight: 48, padding: '0 12px 0 40px', borderRadius: 11, border: `1px solid ${C.border}`, fontSize: 16, boxSizing: 'border-box', background: C.surface, color: C.fg }} />
+          <span style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)', color: C.mutedFg, pointerEvents: 'none' }}><Icon name="search" size={18} /></span>
+          <input value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search parts" placeholder="Search parts or SKU" style={{ width: '100%', minHeight: 48, padding: q ? '0 42px 0 40px' : '0 14px 0 40px', borderRadius: 11, border: `1px solid ${C.border}`, fontSize: 16, boxSizing: 'border-box', background: C.surface, color: C.fg }} />
+          {q && <button onClick={() => setQ('')} aria-label="Clear search" style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', width: 34, height: 34, borderRadius: 999, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.mutedFg }}><Icon name="x" size={18} /></button>}
         </div>
         {multiFleet && (
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {['ALL', ...fleetIds].map((k) => <Chip key={k} active={f === k} onClick={() => setF(k)} small>{k === 'ALL' ? 'All' : (fleetRegistry[k]?.name || k)}</Chip>)}
           </div>
         )}
+        {list.length === 0 && <EmptyNote icon="search">No parts match{q.trim() ? ` “${q.trim()}”` : ' these filters'}.</EmptyNote>}
         {list.map((p) => {
           const isLow = p.qty <= p.min;
           return (
