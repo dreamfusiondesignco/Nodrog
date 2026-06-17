@@ -510,7 +510,7 @@ export function TruckDetail({ truck, issues, usage, parts, history, go, onToggle
             <ExpRow k="Carrier licence" d={truck.carrierLicExp} />
             <ExpRow k="Fire extinguisher" d={truck.fireExtDate} />
           </div>
-          {canEditTruck && <GhostBtn onClick={() => go('editdocs', truck.id)} style={{ width: '100%', marginTop: 12 }}><Icon name="edit" size={16} /> Edit documents</GhostBtn>}
+          {canEditTruck && <GhostBtn onClick={() => go('editdocs', truck.id)} style={{ width: '100%', marginTop: 12 }}><Icon name="edit" size={16} /> Edit details &amp; documents</GhostBtn>}
         </div>}
         <div style={{ height: 10 }} />
       </div>

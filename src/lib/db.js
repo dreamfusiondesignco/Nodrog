@@ -150,6 +150,9 @@ export async function patchTruck(id, fields) {
   if ('status' in fields) row.status = fields.status;
   if ('lastCheck' in fields) row.last_check = dOut(fields.lastCheck);
   if ('photoUrl' in fields) row.photo_url = fields.photoUrl || null;
+  if ('driver' in fields) row.driver = fields.driver;
+  if ('odometer' in fields) row.odometer = Number(fields.odometer) || 0;
+  if ('idleHrs' in fields) row.idle_hrs = Number(fields.idleHrs) || 0;
   if ('chassis' in fields) row.chassis = fields.chassis;
   if ('insuranceExp' in fields) row.insurance_exp = dOut(fields.insuranceExp);
   if ('fitnessExp' in fields) row.fitness_exp = dOut(fields.fitnessExp);

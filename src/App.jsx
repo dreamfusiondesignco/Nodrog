@@ -185,8 +185,12 @@ export default function App() {
       const saved = await db.insertInspection({ truckId, fleet: tr.fleet, date: today, by: user.name, attn, missing: payload.missing || '', general: payload.general || '', results: payload.results || {}, notes: payload.notes || {}, media }, user);
       setInspections((arr) => [saved, ...arr]);
       const status = tr.status === 'oos' ? 'oos' : (attn ? 'due' : 'ok');
-      setTrucks((arr) => arr.map((x) => x.id === truckId ? { ...x, status, lastCheck: today } : x));
-      db.patchTruck(truckId, { status, lastCheck: today }).catch((e) => console.error('Truck status update failed', e));
+      // Capture the readings taken at this inspection onto the truck — never as service history.
+      const upd = { status, lastCheck: today };
+      if (payload.odometer) upd.odometer = +payload.odometer;
+      if (payload.idleHrs) upd.idleHrs = +payload.idleHrs;
+      setTrucks((arr) => arr.map((x) => x.id === truckId ? { ...x, ...upd } : x));
+      db.patchTruck(truckId, upd).catch((e) => console.error('Truck status update failed', e));
       showToast(attn ? `Check saved · ${attn} item(s) flagged` : 'Weekly check completed');
       go('truck', truckId);
     } catch (e) { fail('Could not save check', e); }
@@ -235,7 +239,7 @@ export default function App() {
   };
   const updateTruckDocs = async (truckId, fields) => {
     setTrucks((arr) => arr.map((tr) => tr.id === truckId ? { ...tr, ...fields } : tr));
-    try { await db.patchTruck(truckId, fields); showToast('Documents updated'); } catch (e) { fail('Could not save documents', e); }
+    try { await db.patchTruck(truckId, fields); showToast('Truck details updated'); } catch (e) { fail('Could not save details', e); }
     go('truck', truckId);
   };
   const setTruckPhoto = async (truckId, dataUrl) => {

@@ -445,26 +445,47 @@ export function NewUsage({ truck, parts, onSave, go }) {
 }
 
 export function EditDocs({ truck, onSave, go }) {
+  const [driver, setDriver] = useState(truck.driver || '');
+  const [odometer, setOdometer] = useState(truck.odometer ? String(truck.odometer) : '');
+  const [idleHrs, setIdleHrs] = useState(truck.idleHrs ? String(truck.idleHrs) : '');
   const [chassis, setChassis] = useState(truck.chassis || '');
   const [insuranceExp, setIns] = useState(truck.insuranceExp || '');
   const [fitnessExp, setFit] = useState(truck.fitnessExp || '');
   const [mvRegExp, setMv] = useState(truck.mvRegExp || '');
   const [carrierLicExp, setCar] = useState(truck.carrierLicExp || '');
   const [fireExtDate, setFire] = useState(truck.fireExtDate || '');
+  const Sec = ({ children }) => <h3 style={{ fontSize: 13, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: C.mutedFg, margin: '16px 0 10px' }}>{children}</h3>;
   const D = ({ label, value, onChange }) => <Field label={label} value={value} onChange={onChange} type="date" />;
+  const save = () => {
+    const patch = { driver, chassis, insuranceExp, fitnessExp, mvRegExp, carrierLicExp, fireExtDate };
+    // Only touch readings when a value is present, so clearing a field never zeroes the truck.
+    if (odometer !== '') patch.odometer = +odometer || 0;
+    if (idleHrs !== '') patch.idleHrs = +idleHrs || 0;
+    onSave(truck.id, patch);
+  };
   return (
     <div>
-      <Header title="Edit documents" sub={`${truck.plate} · ${truck.model}`} onBack={() => go('truck', truck.id)} />
+      <Header title="Edit truck details" sub={`${truck.plate} · ${truck.model}`} onBack={() => go('truck', truck.id)} />
       <div style={{ padding: '0 16px 20px' }}>
+        <Sec>Vehicle &amp; driver</Sec>
+        <Field label="Driver" value={driver} onChange={(e) => setDriver(e.target.value)} placeholder="e.g. D. Campbell" />
+
+        <Sec>Current readings</Sec>
+        <div style={{ display: 'flex', gap: 12 }}>
+          <div style={{ flex: 1 }}><Field label="Odometer (mi)" value={odometer} onChange={(e) => setOdometer(e.target.value.replace(/[^0-9]/g, ''))} inputMode="numeric" placeholder="0" /></div>
+          <div style={{ flex: 1 }}><Field label="Idle hours" value={idleHrs} onChange={(e) => setIdleHrs(e.target.value.replace(/[^0-9.]/g, ''))} inputMode="decimal" placeholder="0" /></div>
+        </div>
+        <div style={{ fontSize: 12, color: C.mutedFg, margin: '-6px 0 4px', lineHeight: 1.5 }}>Updates the truck's current readings only — this does not create a service-history record.</div>
+
+        <Sec>Documents</Sec>
         <Field label="Chassis number" value={chassis} onChange={(e) => setChassis(e.target.value)} placeholder="Chassis / VIN" />
-        <h3 style={{ fontSize: 13, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: C.mutedFg, margin: '16px 0 10px' }}>Expiry dates</h3>
         <D label="Insurance" value={insuranceExp} onChange={(e) => setIns(e.target.value)} />
         <D label="Fitness certification" value={fitnessExp} onChange={(e) => setFit(e.target.value)} />
         <D label="MV registration" value={mvRegExp} onChange={(e) => setMv(e.target.value)} />
         <D label="Carrier licence" value={carrierLicExp} onChange={(e) => setCar(e.target.value)} />
         <D label="Fire extinguisher service" value={fireExtDate} onChange={(e) => setFire(e.target.value)} />
-        <PrimaryBtn onClick={() => onSave(truck.id, { chassis, insuranceExp, fitnessExp, mvRegExp, carrierLicExp, fireExtDate })}>
-          <Icon name="check" size={18} /> Save documents
+        <PrimaryBtn onClick={save}>
+          <Icon name="check" size={18} /> Save changes
         </PrimaryBtn>
       </div>
     </div>

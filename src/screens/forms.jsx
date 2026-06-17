@@ -250,6 +250,8 @@ export function NewCheck({ truck, onSave, go }) {
   const [openNote, setOpenNote] = useState({});
   const [notes, setNotes] = useState('');
   const [missing, setMissing] = useState('');
+  const [odometer, setOdometer] = useState(truck.odometer ? String(truck.odometer) : '');
+  const [idleHrs, setIdleHrs] = useState(truck.idleHrs ? String(truck.idleHrs) : '');
   const set = (k, v) => setState((s) => ({ ...s, [k]: s[k] === v ? undefined : v }));
   const setNote = (k, v) => setNoteState((s) => ({ ...s, [k]: v }));
   const toggleNote = (k) => setOpenNote((s) => ({ ...s, [k]: !s[k] }));
@@ -310,6 +312,13 @@ export function NewCheck({ truck, onSave, go }) {
           </div>
         </div>
 
+        <SectionTitle>Readings</SectionTitle>
+        <div style={{ display: 'flex', gap: 12 }}>
+          <div style={{ flex: 1 }}><Field label="Odometer (mi)" value={odometer} onChange={(e) => setOdometer(e.target.value.replace(/[^0-9]/g, ''))} inputMode="numeric" placeholder="0" /></div>
+          <div style={{ flex: 1 }}><Field label="Idle hours" value={idleHrs} onChange={(e) => setIdleHrs(e.target.value.replace(/[^0-9.]/g, ''))} inputMode="decimal" placeholder="0" /></div>
+        </div>
+        <div style={{ fontSize: 11.5, color: C.mutedFg, margin: '-6px 0 4px' }}>Updates the truck's readings with this check — not service history.</div>
+
         <SectionTitle>Steering &amp; drivetrain</SectionTitle>
         <div style={{ ...cardStyle(), padding: '4px 14px' }}>
           {INSPECT_SINGLE.map((s) => renderItem(s, s))}
@@ -336,7 +345,7 @@ export function NewCheck({ truck, onSave, go }) {
         </div>
         <SectionTitle>General comments</SectionTitle>
         <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} placeholder="Anything to flag for the supervisor…" style={{ width: '100%', borderRadius: 11, border: `1px solid ${C.border}`, padding: 12, fontSize: 16, boxSizing: 'border-box', resize: 'vertical', marginBottom: 16, background: C.surface, color: C.fg, fontFamily: 'inherit' }} />
-        <PrimaryBtn onClick={() => onSave(truck.id, { attn, results: state, notes: noteState, general: notes, missing })} color={attn ? C.warn : C.accent}>
+        <PrimaryBtn onClick={() => onSave(truck.id, { attn, results: state, notes: noteState, general: notes, missing, odometer: +odometer || 0, idleHrs: +idleHrs || 0 })} color={attn ? C.warn : C.accent}>
           <Icon name="checkc" size={18} /> {attn ? `Complete check (${attn} flagged)` : 'Complete check'}
         </PrimaryBtn>
       </div>
