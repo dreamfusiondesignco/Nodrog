@@ -105,6 +105,15 @@ export async function uploadMedia(items, userId) {
   return { items: out, failed };
 }
 
+// Upload one image (data URL) to Storage and return a durable public URL.
+// In local/demo mode the data URL passes straight through (single-device preview).
+// Returns '' if the upload failed so the caller can keep its optimistic preview.
+export async function uploadImage(dataUrl, userId) {
+  if (!dataUrl) return '';
+  const { items } = await uploadMedia([{ type: 'image', url: dataUrl, name: 'truck.jpg' }], userId);
+  return items[0]?.url || '';
+}
+
 // ───────────────────────── inserts / updates ─────────────────────────
 // Each returns the saved object in app shape. In local mode it just stamps an id.
 
@@ -140,6 +149,10 @@ export async function patchTruck(id, fields) {
   const row = {};
   if ('status' in fields) row.status = fields.status;
   if ('lastCheck' in fields) row.last_check = dOut(fields.lastCheck);
+  if ('photoUrl' in fields) row.photo_url = fields.photoUrl || null;
+  if ('driver' in fields) row.driver = fields.driver;
+  if ('odometer' in fields) row.odometer = Number(fields.odometer) || 0;
+  if ('idleHrs' in fields) row.idle_hrs = Number(fields.idleHrs) || 0;
   if ('chassis' in fields) row.chassis = fields.chassis;
   if ('insuranceExp' in fields) row.insurance_exp = dOut(fields.insuranceExp);
   if ('fitnessExp' in fields) row.fitness_exp = dOut(fields.fitnessExp);

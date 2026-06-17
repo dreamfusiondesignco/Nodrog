@@ -177,6 +177,13 @@ export default function App() {
     try { await db.deleteIssue(id); showToast('Issue deleted'); } catch (e) { fail('Could not delete issue', e); }
     go('issues');
   };
+  const removeIssues = async (ids) => {
+    if (!ids || !ids.length) return;
+    const set = new Set(ids);
+    setIssues((arr) => arr.filter((i) => !set.has(i.id)));
+    try { await Promise.all(ids.map((id) => db.deleteIssue(id))); showToast(`${ids.length} issue${ids.length > 1 ? 's' : ''} deleted`); }
+    catch (e) { fail('Could not delete issues', e); }
+  };
   const saveCheck = async (truckId, payload) => {
     try {
       const tr = trucks.find((x) => x.id === truckId);
@@ -185,8 +192,12 @@ export default function App() {
       const saved = await db.insertInspection({ truckId, fleet: tr.fleet, date: today, by: user.name, attn, missing: payload.missing || '', general: payload.general || '', results: payload.results || {}, notes: payload.notes || {}, media }, user);
       setInspections((arr) => [saved, ...arr]);
       const status = tr.status === 'oos' ? 'oos' : (attn ? 'due' : 'ok');
-      setTrucks((arr) => arr.map((x) => x.id === truckId ? { ...x, status, lastCheck: today } : x));
-      db.patchTruck(truckId, { status, lastCheck: today }).catch((e) => console.error('Truck status update failed', e));
+      // Capture the readings taken at this inspection onto the truck — never as service history.
+      const upd = { status, lastCheck: today };
+      if (payload.odometer) upd.odometer = +payload.odometer;
+      if (payload.idleHrs) upd.idleHrs = +payload.idleHrs;
+      setTrucks((arr) => arr.map((x) => x.id === truckId ? { ...x, ...upd } : x));
+      db.patchTruck(truckId, upd).catch((e) => console.error('Truck status update failed', e));
       showToast(attn ? `Check saved · ${attn} item(s) flagged` : 'Weekly check completed');
       go('truck', truckId);
     } catch (e) { fail('Could not save check', e); }
@@ -235,8 +246,22 @@ export default function App() {
   };
   const updateTruckDocs = async (truckId, fields) => {
     setTrucks((arr) => arr.map((tr) => tr.id === truckId ? { ...tr, ...fields } : tr));
-    try { await db.patchTruck(truckId, fields); showToast('Documents updated'); } catch (e) { fail('Could not save documents', e); }
+    try { await db.patchTruck(truckId, fields); showToast('Truck details updated'); } catch (e) { fail('Could not save details', e); }
     go('truck', truckId);
+  };
+  const setTruckPhoto = async (truckId, dataUrl) => {
+    // optimistic: show the new photo right away; the component also caches it locally
+    setTrucks((arr) => arr.map((tr) => tr.id === truckId ? { ...tr, photoUrl: dataUrl } : tr));
+    try {
+      const url = await db.uploadImage(dataUrl, user.id); // → durable Storage URL (live) or the data URL (local)
+      if (url) {
+        setTrucks((arr) => arr.map((tr) => tr.id === truckId ? { ...tr, photoUrl: url } : tr));
+        await db.patchTruck(truckId, { photoUrl: url });  // persist so it loads on every device
+        showToast('Truck photo updated');
+      } else {
+        showToast('Photo saved on this device · cloud upload failed');
+      }
+    } catch (e) { fail('Could not save photo', e); }
   };
   const addService = async (truckId, rec) => {
     try { const saved = await db.insertHistory({ truckId, by: user.name, ...rec }, user); setHistory((arr) => [saved, ...arr]); showToast('Service record added'); go('truck', truckId); }
@@ -261,15 +286,15 @@ export default function App() {
   switch (route.name) {
     case 'trucks': screen = <Trucks fleet={fleet} multiFleet={multiFleet} fleetIds={myFleets} trucks={vTrucks} go={go} canEdit={isAdmin} />; break;
     case 'newtruck': screen = isAdmin ? <NewTruck fleetIds={myFleets} onSave={addTruck} go={go} /> : <Trucks fleet={fleet} multiFleet={multiFleet} fleetIds={myFleets} trucks={vTrucks} go={go} canEdit={isAdmin} />; break;
-    case 'truck': { const tr = trucks.find((x) => x.id === route.param); screen = tr ? <TruckDetail truck={tr} issues={issues} usage={usage} parts={parts} history={history} go={go} onToggleOOS={toggleOOS} canEdit={canEdit} canEditTruck={isAdmin} /> : <Trucks fleet={fleet} multiFleet={multiFleet} fleetIds={myFleets} trucks={vTrucks} go={go} canEdit={isAdmin} />; break; }
-    case 'issues': screen = <Issues trucks={trucks} issues={vIssues} go={go} canEdit={canEdit} />; break;
+    case 'truck': { const tr = trucks.find((x) => x.id === route.param); screen = tr ? <TruckDetail truck={tr} issues={issues} usage={usage} parts={parts} history={history} go={go} onToggleOOS={toggleOOS} onPhoto={setTruckPhoto} canEdit={canEdit} canEditTruck={isAdmin} /> : <Trucks fleet={fleet} multiFleet={multiFleet} fleetIds={myFleets} trucks={vTrucks} go={go} canEdit={isAdmin} />; break; }
+    case 'issues': screen = <Issues trucks={trucks} issues={vIssues} go={go} canEdit={canEdit} onDelete={removeIssues} />; break;
     case 'newissue': screen = <NewIssue trucks={vTrucks} preTruck={route.param} onSave={saveIssue} go={go} />; break;
     case 'editissue': { const iss = issues.find((x) => x.id === route.param); screen = iss ? <EditIssue issue={iss} trucks={trucks} onSave={editIssue} onDelete={removeIssue} go={go} /> : <Issues trucks={trucks} issues={vIssues} go={go} canEdit={canEdit} />; break; }
     case 'inventory': screen = <Inventory parts={vParts} multiFleet={multiFleet} fleetIds={myFleets} go={go} onAdjust={adjustPart} canEdit={canEdit} />; break;
     case 'newpart': screen = <NewPart fleetIds={myFleets} onSave={addPart} go={go} />; break;
     case 'newcheck': screen = <NewCheck truck={trucks.find((x) => x.id === route.param)} onSave={saveCheck} go={go} />; break;
     case 'usepart': screen = <NewUsage truck={trucks.find((x) => x.id === route.param)} parts={vParts} onSave={recordUsage} go={go} />; break;
-    case 'editdocs': screen = isAdmin ? <EditDocs truck={trucks.find((x) => x.id === route.param)} onSave={updateTruckDocs} go={go} /> : <TruckDetail truck={trucks.find((x) => x.id === route.param)} issues={issues} usage={usage} parts={parts} history={history} go={go} onToggleOOS={toggleOOS} canEdit={canEdit} canEditTruck={isAdmin} />; break;
+    case 'editdocs': screen = isAdmin ? <EditDocs truck={trucks.find((x) => x.id === route.param)} onSave={updateTruckDocs} go={go} /> : <TruckDetail truck={trucks.find((x) => x.id === route.param)} issues={issues} usage={usage} parts={parts} history={history} go={go} onToggleOOS={toggleOOS} onPhoto={setTruckPhoto} canEdit={canEdit} canEditTruck={isAdmin} />; break;
     case 'newservice': screen = <NewService truck={trucks.find((x) => x.id === route.param)} onSave={addService} go={go} />; break;
     case 'reports': screen = <Reports trucks={vTrucks} issues={vIssues} parts={vParts} fleet={fleet} go={go} />; break;
     case 'weeklyreports': screen = <WeeklyReports inspections={vInspections} trucks={trucks} go={go} />; break;

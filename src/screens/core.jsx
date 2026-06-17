@@ -1,28 +1,77 @@
 import React, { useState, useMemo } from 'react';
 import { fleetRegistry } from '../data.js';
 import { signIn } from '../lib/auth.js';
-import { C, Icon, Badge, cardStyle, rowStyle, Field, Select, PrimaryBtn, GhostBtn, Header, PhotoSlot, MediaSlot, SectionTitle, sevColor, statusColor, statusLabel, fmtDate, fmtNum, daysUntil } from '../ui.jsx';
+import { C, Icon, Badge, cardStyle, rowStyle, Field, Select, PrimaryBtn, GhostBtn, Header, PhotoSlot, MediaSlot, SectionTitle, sevColor, statusColor, statusLabel, fmtDate, fmtNum, daysUntil, fileToScaledImage } from '../ui.jsx';
 import markNavy from '../../public/assets/nodrog-mark.svg';
 import markLight from '../../public/assets/nodrog-mark-light.svg';
 
-function ImageSlotSimple({ id, placeholder }) {
-  const [img, setImg] = useState(() => { try { return localStorage.getItem('img-' + id) || null; } catch { return null; } });
-  const inputRef = React.useRef(null);
-  const handleFile = (file) => {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => { const url = e.target.result; setImg(url); try { localStorage.setItem('img-' + id, url); } catch {} };
-    reader.readAsDataURL(file);
-  };
+// Per-truck photo cache — instant local preview + offline fallback if the
+// remote Storage URL is briefly unreachable. The durable copy lives on truck.photoUrl.
+const photoCacheKey = (id) => 'img-truck-photo-' + id;
+const readPhotoCache = (id) => { try { return localStorage.getItem(photoCacheKey(id)) || ''; } catch { return ''; } };
+
+const Spinner = ({ size = 18 }) => (
+  <span className="nm-spin" style={{ width: size, height: size, borderRadius: '50%', border: '2.5px solid rgba(255,255,255,.35)', borderTopColor: '#fff', display: 'inline-block' }} />
+);
+
+// Small thumbnail for the Trucks list — shows the truck's photo, falls back to an
+// icon when there's no image or the URL fails to load (so nothing ever "breaks").
+function TruckThumb({ truck, size = 66, height = 54 }) {
+  const [broken, setBroken] = useState(false);
+  const src = !broken && (truck.photoUrl || readPhotoCache(truck.id));
   return (
-    <div onClick={() => inputRef.current?.click()} onDrop={(e) => { e.preventDefault(); handleFile(e.dataTransfer.files[0]); }} onDragOver={(e) => e.preventDefault()}
-      style={{ width: '100%', height: 150, background: img ? 'transparent' : C.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', borderBottom: `1px solid ${C.border}`, position: 'relative', overflow: 'hidden' }}>
-      {img ? <img src={img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (
-        <div style={{ textAlign: 'center', color: C.mutedFg }}>
-          <Icon name="camera" size={28} /><div style={{ fontSize: 12, marginTop: 6, fontWeight: 600 }}>{placeholder || 'Tap to add photo'}</div>
+    <div style={{ width: size, height, borderRadius: 11, background: C.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.mutedFg, flexShrink: 0, overflow: 'hidden' }}>
+      {src
+        ? <img src={src} alt={`${truck.plate}`} loading="lazy" onError={() => setBroken(true)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        : <Icon name="truck" size={26} />}
+    </div>
+  );
+}
+
+// Main truck photo. Source of truth is truck.photoUrl (synced via Supabase Storage so it
+// loads on every device); shows an optimistic local preview while a new upload is in flight,
+// and degrades to a placeholder if the image can't load. `onUpload(dataUrl)` persists it.
+function TruckPhoto({ truck, editable = true, onUpload, height = 172 }) {
+  const inputRef = React.useRef(null);
+  const [preview, setPreview] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [broken, setBroken] = useState(false);
+  const src = preview || (!broken ? (truck.photoUrl || readPhotoCache(truck.id)) : '');
+  const hasImg = !!src;
+
+  const pick = (file) => {
+    if (!file || busy) return;
+    setBusy(true); setBroken(false);
+    fileToScaledImage(file).then(async (img) => {
+      if (!img?.url) { setBusy(false); return; }
+      setPreview(img.url);                                                   // instant feedback
+      try { localStorage.setItem(photoCacheKey(truck.id), img.url); } catch {}
+      try { await onUpload?.(img.url); } finally { setBusy(false); }         // upload + persist URL
+    });
+  };
+
+  return (
+    <div onClick={() => editable && !busy && inputRef.current?.click()}
+      onDrop={editable ? (e) => { e.preventDefault(); pick(e.dataTransfer.files[0]); } : undefined}
+      onDragOver={editable ? (e) => e.preventDefault() : undefined}
+      style={{ width: '100%', height, background: hasImg ? '#0B1A2B' : C.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: editable ? 'pointer' : 'default', borderBottom: `1px solid ${C.border}`, position: 'relative', overflow: 'hidden' }}>
+      {hasImg
+        ? <img src={src} alt={`${truck.plate} photo`} onError={() => setBroken(true)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        : <div style={{ textAlign: 'center', color: C.mutedFg }}>
+            <Icon name={editable ? 'camera' : 'truck'} size={28} />
+            <div style={{ fontSize: 12, marginTop: 6, fontWeight: 600 }}>{editable ? 'Tap to add truck photo' : 'No photo yet'}</div>
+          </div>}
+      {editable && hasImg && !busy && (
+        <span style={{ position: 'absolute', right: 10, bottom: 10, background: 'rgba(0,0,0,.55)', color: '#fff', fontSize: 11, fontWeight: 700, padding: '5px 10px', borderRadius: 999, display: 'flex', alignItems: 'center', gap: 5 }}>
+          <Icon name="camera" size={13} color="#fff" /> Change photo
+        </span>
+      )}
+      {busy && (
+        <div style={{ position: 'absolute', inset: 0, background: 'rgba(11,26,43,.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9, color: '#fff', fontSize: 13.5, fontWeight: 700 }}>
+          <Spinner /> Uploading…
         </div>
       )}
-      <input ref={inputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleFile(e.target.files[0])} />
+      {editable && <input ref={inputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => { pick(e.target.files[0]); e.target.value = ''; }} />}
     </div>
   );
 }
@@ -154,9 +203,11 @@ export function Dashboard({ user, fleet, trucks, issues, parts, go }) {
     </button>
   );
 
+  // Monday of the current week, computed live (was a hard-coded date).
+  const weekOf = (() => { const d = new Date(); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.toISOString().slice(0, 10); })();
   return (
     <div>
-      <Header title={`Good day, ${user.name.split(' ')[0]}`} sub={`${fleet === 'ALL' ? 'All fleets' : fleetRegistry[fleet]?.full || fleet} · Week of ${fmtDate('2026-06-08')}`} />
+      <Header title={`Good day, ${user.name.split(' ')[0]}`} sub={`${fleet === 'ALL' ? 'All fleets' : fleetRegistry[fleet]?.full || fleet} · Week of ${fmtDate(weekOf)}`} />
       <div style={{ padding: '0 16px 8px', display: 'flex', flexDirection: 'column', gap: 12 }}>
         {oos.length > 0 && (
           <button onClick={() => go('truck', oos[0].id)} style={{ ...cardStyle(), borderColor: C.crit, background: C.crit + '12', padding: 14, display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', textAlign: 'left' }}>
@@ -214,6 +265,16 @@ export function Dashboard({ user, fleet, trucks, issues, parts, go }) {
   );
 }
 
+// Engine-service due state from the interval (miles or idle hours).
+function serviceDue(t) {
+  const e = t.service?.engine || {};
+  const milesLeft = e.nextDueMiles != null ? e.nextDueMiles - (t.odometer || 0) : null;
+  const hrsLeft = e.nextDueHrs != null ? e.nextDueHrs - (t.idleHrs || 0) : null;
+  const overdue = (milesLeft != null && milesLeft <= 0) || (hrsLeft != null && hrsLeft <= 0);
+  const soon = !overdue && ((milesLeft != null && milesLeft <= 4000) || (hrsLeft != null && hrsLeft <= 300));
+  return { milesLeft, overdue, soon };
+}
+
 const trkSelect = () => ({
   flex: 1, minWidth: 0, minHeight: 44, borderRadius: 11, border: `1px solid ${C.border}`,
   padding: '0 12px', fontSize: 14, fontWeight: 700, background: C.surface, color: C.fg,
@@ -221,36 +282,78 @@ const trkSelect = () => ({
 });
 
 export function Trucks({ fleet, multiFleet, fleetIds = ['IGL', 'MASSY'], trucks, go, canEdit = true }) {
+  const [q, setQ] = useState('');
   const [f, setF] = useState('ALL');
   const [status, setStatus] = useState('all');
-  const list = trucks.filter((t) => (f === 'ALL' || t.fleet === f) && (status === 'all' || (status === 'attn' ? t.status !== 'ok' : t.status === status)));
+
+  const matchStatus = (t) => status === 'all' ? true
+    : status === 'attn' ? t.status !== 'ok'
+    : status === 'oos' ? t.status === 'oos'
+    : t.status === 'ok';
+  const query = q.trim().toLowerCase();
+  const matchQuery = (t) => !query ||
+    [t.plate, t.model, t.driver, t.location, t.segment, t.chassis, fleetRegistry[t.fleet]?.name]
+      .filter(Boolean).join(' ').toLowerCase().includes(query);
+
+  const list = useMemo(
+    () => trucks.filter((t) => (f === 'ALL' || t.fleet === f) && matchStatus(t) && matchQuery(t)),
+    [trucks, f, status, query],
+  );
+  const filtering = query || f !== 'ALL' || status !== 'all';
+  const sub = filtering ? `${list.length} of ${trucks.length} vehicles` : `${trucks.length} vehicle${trucks.length !== 1 ? 's' : ''}`;
+
   return (
     <div>
-      <Header title="Trucks" sub={`${list.length} vehicle${list.length !== 1 ? 's' : ''}`}
+      <Header title="Trucks" sub={sub}
         action={canEdit && <button onClick={() => go('newtruck')} aria-label="Add truck" style={{ minWidth: 42, minHeight: 42, borderRadius: 12, border: 'none', background: C.accent, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name="plus" size={20} color="#fff" /></button>} />
       <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {list.length === 0 && <EmptyNote icon="truck">No trucks yet. Tap + to add your first truck.</EmptyNote>}
-        <div style={{ display: 'flex', gap: 10 }}>
-          {multiFleet && (
-            <select value={f} onChange={(e) => setF(e.target.value)} aria-label="Fleet" style={trkSelect()}>
-              <option value="ALL">All fleets</option>
-              {fleetIds.map((k) => <option key={k} value={k}>{fleetRegistry[k]?.name || k}</option>)}
-            </select>
-          )}
-          <select value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Status" style={trkSelect()}>
-            <option value="all">All trucks</option>
-            <option value="attn">Needs attention</option>
-            <option value="ok">Up to date</option>
-          </select>
-        </div>
+        {trucks.length === 0 ? (
+          <EmptyNote icon="truck">No trucks yet. Tap + to add your first truck.</EmptyNote>
+        ) : (
+          <>
+            <div style={{ position: 'relative' }}>
+              <span style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)', color: C.mutedFg, pointerEvents: 'none' }}><Icon name="search" size={18} /></span>
+              <input value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search trucks" inputMode="search"
+                placeholder="Search by plate or driver name…"
+                style={{ width: '100%', minHeight: 48, padding: q ? '0 42px 0 40px' : '0 14px 0 40px', borderRadius: 11, border: `1px solid ${C.border}`, fontSize: 16, boxSizing: 'border-box', background: C.surface, color: C.fg }} />
+              {q && (
+                <button onClick={() => setQ('')} aria-label="Clear search" style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', width: 34, height: 34, borderRadius: 999, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.mutedFg }}>
+                  <Icon name="x" size={18} />
+                </button>
+              )}
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              {multiFleet && (
+                <select value={f} onChange={(e) => setF(e.target.value)} aria-label="Fleet" style={trkSelect()}>
+                  <option value="ALL">All fleets</option>
+                  {fleetIds.map((k) => <option key={k} value={k}>{fleetRegistry[k]?.name || k}</option>)}
+                </select>
+              )}
+              <select value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Status" style={trkSelect()}>
+                <option value="all">All trucks</option>
+                <option value="attn">Needs attention</option>
+                <option value="oos">Out of service</option>
+                <option value="ok">Up to date</option>
+              </select>
+            </div>
+          </>
+        )}
+        {trucks.length > 0 && list.length === 0 && (
+          <EmptyNote icon="search">No trucks match {query ? `“${q.trim()}”` : 'these filters'}. <button onClick={() => { setQ(''); setF('ALL'); setStatus('all'); }} style={{ border: 'none', background: 'transparent', color: C.accent, fontWeight: 700, cursor: 'pointer', padding: 0, font: 'inherit' }}>Clear</button></EmptyNote>
+        )}
         {list.map((t) => {
-          const milesLeft = t.service.engine.nextDueMiles - t.odometer;
-          const attn = t.status !== 'ok';
+          const svc = serviceDue(t);
+          const milesLeft = svc.milesLeft;
           return (
             <button key={t.id} onClick={() => go('truck', t.id)} style={{ ...cardStyle(), padding: 0, overflow: 'hidden', textAlign: 'left', cursor: 'pointer', display: 'block', width: '100%', font: 'inherit', color: C.fg }}>
               <div style={{ display: 'flex', gap: 12, padding: 13, alignItems: 'center' }}>
-                <div style={{ width: 66, height: 54, borderRadius: 11, background: C.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.mutedFg, flexShrink: 0 }}>
-                  <Icon name="truck" size={26} />
+                <div style={{ position: 'relative', flexShrink: 0 }}>
+                  <TruckThumb truck={t} />
+                  {(svc.overdue || svc.soon) && (
+                    <span title={svc.overdue ? 'Service overdue' : 'Service due'} style={{ position: 'absolute', top: -5, right: -5, minWidth: 19, height: 19, padding: '0 4px', borderRadius: 999, background: svc.overdue ? C.crit : C.warn, border: `2px solid ${C.surface}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Icon name="wrench" size={11} color="#fff" />
+                    </span>
+                  )}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -268,9 +371,9 @@ export function Trucks({ fleet, multiFleet, fleetIds = ['IGL', 'MASSY'], trucks,
                 </div>
                 <Icon name="chevron" size={18} color={C.mutedFg} style={{ flexShrink: 0 }} />
               </div>
-              <div style={{ padding: '9px 14px', borderTop: `1px solid ${C.border}`, background: attn ? statusColor(t.status) + '0E' : C.surface2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+              <div style={{ padding: '9px 14px', borderTop: `1px solid ${C.border}`, background: svc.overdue ? C.danger + '0E' : svc.soon ? C.warn + '0E' : C.surface2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
                 <span style={{ fontSize: 11.5, color: C.mutedFg, fontWeight: 600, whiteSpace: 'nowrap' }}>Next service</span>
-                <span style={{ fontSize: 12, fontWeight: 800, whiteSpace: 'nowrap', color: milesLeft <= 0 ? C.danger : milesLeft <= 4000 ? C.warn : C.ok }}>{milesLeft <= 0 ? 'Overdue' : `${fmtNum(milesLeft)} mi`}</span>
+                <span style={{ fontSize: 12, fontWeight: 800, whiteSpace: 'nowrap', color: svc.overdue ? C.danger : svc.soon ? C.warn : C.ok }}>{svc.overdue ? 'Overdue' : milesLeft != null ? `${fmtNum(Math.max(0, milesLeft))} mi` : '—'}</span>
               </div>
             </button>
           );
@@ -281,10 +384,11 @@ export function Trucks({ fleet, multiFleet, fleetIds = ['IGL', 'MASSY'], trucks,
   );
 }
 
-export function TruckDetail({ truck, issues, usage, parts, history, go, onToggleOOS, canEdit, canEditTruck = false }) {
+export function TruckDetail({ truck, issues, usage, parts, history, go, onToggleOOS, onPhoto, canEdit, canEditTruck = false }) {
   const [tab, setTab] = useState('service');
   const tIssues = issues.filter((i) => i.truckId === truck.id);
   const openIss = tIssues.filter((i) => i.status === 'open');
+  const pastIss = tIssues.filter((i) => i.status !== 'open').sort((a, b) => (b.date || '').localeCompare(a.date || ''));
   const tUsage = usage.filter((u) => u.truckId === truck.id);
   const tHist = history.filter((h) => h.truckId === truck.id);
   const partName = (id) => parts.find((p) => p.id === id)?.name || '—';
@@ -344,7 +448,7 @@ export function TruckDetail({ truck, issues, usage, parts, history, go, onToggle
         action={<Badge color={statusColor(truck.status)} solid={truck.status === 'oos'}>{statusLabel(truck.status)}</Badge>} />
       <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div style={{ ...cardStyle(), padding: 0, overflow: 'hidden' }}>
-          <ImageSlotSimple id={'truck-photo-' + truck.id} placeholder="Tap to add truck photo" />
+          <TruckPhoto truck={truck} editable={canEditTruck} onUpload={(dataUrl) => onPhoto?.(truck.id, dataUrl)} />
           <div style={{ padding: 14, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
             {[['Odometer', `${fmtNum(truck.odometer)} mi`], ['Idle hours', `${fmtNum(truck.idleHrs)} h`], ['Driver', truck.driver], ['Location', truck.location], ['Segment', truck.segment], ['Capacity', truck.capacity]].map(([k, v]) => (
               <div key={k}>
@@ -363,8 +467,8 @@ export function TruckDetail({ truck, issues, usage, parts, history, go, onToggle
           </button>
         </div>}
 
-        <div style={{ display: 'flex', gap: 7, marginTop: 2 }}>
-          {[['service', 'Service'], ['issues', `Issues${openIss.length ? ' ' + openIss.length : ''}`], ['history', 'History'], ['docs', 'Docs']].map(([k, l]) => (
+        <div style={{ display: 'flex', gap: 7, overflowX: 'auto', margin: '2px -16px 0', padding: '0 16px 2px' }}>
+          {[['service', 'Service'], ['issues', `Issues${openIss.length ? ' ' + openIss.length : ''}`], ['history', 'History'], ['svchistory', 'Service history'], ['docs', 'Docs']].map(([k, l]) => (
             <Chip key={k} active={tab === k} onClick={() => setTab(k)} small>{l}</Chip>
           ))}
         </div>
@@ -392,12 +496,17 @@ export function TruckDetail({ truck, issues, usage, parts, history, go, onToggle
         </div>}
 
         {tab === 'issues' && <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {tIssues.length === 0 && <EmptyNote icon="checkc">No issues logged.</EmptyNote>}
-          {tIssues.map((i) => <IssueCardInline key={i.id} issue={i} />)}
+          {openIss.length === 0 && <EmptyNote icon="checkc">No open issues.{pastIss.length ? ' See History for resolved ones.' : ''}</EmptyNote>}
+          {openIss.map((i) => <IssueCardInline key={i.id} issue={i} />)}
           {canEdit && <GhostBtn onClick={() => go('newissue', truck.id)} style={{ width: '100%' }}><Icon name="plus" size={16} /> Log an issue</GhostBtn>}
         </div>}
 
-        {tab === 'history' && <div>
+        {tab === 'history' && <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {pastIss.length === 0 && <EmptyNote icon="checkc">No past issues — nothing resolved yet.</EmptyNote>}
+          {pastIss.map((i) => <IssueCardInline key={i.id} issue={i} />)}
+        </div>}
+
+        {tab === 'svchistory' && <div>
           <div style={{ ...cardStyle(), padding: 4 }}>
             {tHist.length === 0 && <div style={{ padding: 12 }}><EmptyNote>No service history.</EmptyNote></div>}
             {tHist.map((h, i) => (
@@ -426,7 +535,7 @@ export function TruckDetail({ truck, issues, usage, parts, history, go, onToggle
             <ExpRow k="Carrier licence" d={truck.carrierLicExp} />
             <ExpRow k="Fire extinguisher" d={truck.fireExtDate} />
           </div>
-          {canEditTruck && <GhostBtn onClick={() => go('editdocs', truck.id)} style={{ width: '100%', marginTop: 12 }}><Icon name="edit" size={16} /> Edit documents</GhostBtn>}
+          {canEditTruck && <GhostBtn onClick={() => go('editdocs', truck.id)} style={{ width: '100%', marginTop: 12 }}><Icon name="edit" size={16} /> Edit details &amp; documents</GhostBtn>}
         </div>}
         <div style={{ height: 10 }} />
       </div>

@@ -6,3 +6,5 @@ input, textarea, select { font-family: inherit; }
 input:focus, textarea:focus, select:focus { border-color: #1E63D6 !important; box-shadow: 0 0 0 3px rgba(30,99,214,.16); }
 button:focus-visible, a:focus-visible { outline: 2px solid #1E63D6; outline-offset: 2px; }
 ::-webkit-scrollbar { width: 0; height: 0; }
+@keyframes nm-spin { to { transform: rotate(360deg); } }
+.nm-spin { animation: nm-spin .7s linear infinite; }
