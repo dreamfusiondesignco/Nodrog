@@ -203,9 +203,11 @@ export function Dashboard({ user, fleet, trucks, issues, parts, go }) {
     </button>
   );
 
+  // Monday of the current week, computed live (was a hard-coded date).
+  const weekOf = (() => { const d = new Date(); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.toISOString().slice(0, 10); })();
   return (
     <div>
-      <Header title={`Good day, ${user.name.split(' ')[0]}`} sub={`${fleet === 'ALL' ? 'All fleets' : fleetRegistry[fleet]?.full || fleet} · Week of ${fmtDate('2026-06-08')}`} />
+      <Header title={`Good day, ${user.name.split(' ')[0]}`} sub={`${fleet === 'ALL' ? 'All fleets' : fleetRegistry[fleet]?.full || fleet} · Week of ${fmtDate(weekOf)}`} />
       <div style={{ padding: '0 16px 8px', display: 'flex', flexDirection: 'column', gap: 12 }}>
         {oos.length > 0 && (
           <button onClick={() => go('truck', oos[0].id)} style={{ ...cardStyle(), borderColor: C.crit, background: C.crit + '12', padding: 14, display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', textAlign: 'left' }}>

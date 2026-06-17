@@ -173,7 +173,7 @@ export function ManageFleets({ fleets, trucks, parts, onAdd, go }) {
 export function WeeklyReports({ inspections, trucks, go }) {
   const [f, setF] = useState('all');
   const plate = (id) => trucks.find((t) => t.id === id)?.plate || '—';
-  const list = [...inspections].sort((a, b) => b.date.localeCompare(a.date))
+  const list = [...inspections].sort((a, b) => (b.date || '').localeCompare(a.date || ''))
     .filter((r) => f === 'all' ? true : f === 'flagged' ? r.attn > 0 : r.attn === 0);
   return (
     <div>
@@ -255,7 +255,7 @@ export function ReportDetail({ report, trucks, go }) {
 export function Invoices({ invoices, trucks, go }) {
   const [f, setF] = useState('all');
   const plate = (id) => trucks.find((t) => t.id === id)?.plate || '—';
-  const list = [...invoices].sort((a, b) => b.date.localeCompare(a.date)).filter((i) => f === 'all' || i.status === f);
+  const list = [...invoices].sort((a, b) => (b.date || '').localeCompare(a.date || '')).filter((i) => f === 'all' || i.status === f);
   const totalOpen = invoices.filter((i) => i.status !== 'paid').reduce((s, i) => s + invTotal(i), 0);
   return (
     <div>
@@ -413,7 +413,7 @@ export function NewUsage({ truck, parts, onSave, go }) {
   const avail = parts.filter((p) => p.fleet === 'SHARED' || p.fleet === truck.fleet);
   const [partId, setPartId] = useState(avail[0]?.id || '');
   const [qty, setQty] = useState('1');
-  const [date, setDate] = useState('2026-06-11');
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [note, setNote] = useState('');
   const part = parts.find((p) => p.id === partId);
   const n = +qty || 0;
@@ -493,7 +493,7 @@ export function EditDocs({ truck, onSave, go }) {
 }
 
 export function NewService({ truck, onSave, go }) {
-  const [date, setDate] = useState('2026-06-11');
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [type, setType] = useState('');
   const [miles, setMiles] = useState(String(truck.odometer || ''));
   const [notes, setNotes] = useState('');
