@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { fleetRegistry, INSPECT_SINGLE, INSPECT_POSITIONS, INSPECT_POSITION_CATS, INSPECT_FLUIDS, INSPECT_DRIVETRAIN } from '../data.js';
-import { C, Icon, Badge, cardStyle, rowStyle, Field, Select, PrimaryBtn, GhostBtn, Header, PhotoSlot, MediaSlot, MediaUpload, SectionTitle, sevColor, fmtDate } from '../ui.jsx';
+import { C, Icon, Badge, cardStyle, rowStyle, Field, Select, PrimaryBtn, GhostBtn, Header, MediaUpload, SectionTitle, sevColor, fmtDate } from '../ui.jsx';
 import { FleetChip, Chip, EmptyNote } from './core.jsx';
 
 export function IssueCard({ issue, truckPlate, compact, onEdit, selectable, selected, onToggle }) {
@@ -307,6 +307,7 @@ export function NewCheck({ truck, onSave, go }) {
   const [missing, setMissing] = useState('');
   const [odometer, setOdometer] = useState(truck.odometer ? String(truck.odometer) : '');
   const [idleHrs, setIdleHrs] = useState(truck.idleHrs ? String(truck.idleHrs) : '');
+  const [media, setMedia] = useState([]);
   const set = (k, v) => setState((s) => ({ ...s, [k]: s[k] === v ? undefined : v }));
   const setNote = (k, v) => setNoteState((s) => ({ ...s, [k]: v }));
   const toggleNote = (k) => setOpenNote((s) => ({ ...s, [k]: !s[k] }));
@@ -395,12 +396,12 @@ export function NewCheck({ truck, onSave, go }) {
         <SectionTitle>Missing items</SectionTitle>
         <Field value={missing} onChange={(e) => setMissing(e.target.value)} placeholder="e.g. wheel chock, jack handle…" />
         <SectionTitle>Photos &amp; video</SectionTitle>
-        <div style={{ display: 'flex', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
-          <MediaSlot kind="photo" /><MediaSlot kind="photo" /><MediaSlot kind="video" />
+        <div style={{ marginBottom: 12 }}>
+          <MediaUpload value={media} onChange={setMedia} maxPhotos={8} allowVideo />
         </div>
         <SectionTitle>General comments</SectionTitle>
         <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} placeholder="Anything to flag for the supervisor…" style={{ width: '100%', borderRadius: 11, border: `1px solid ${C.border}`, padding: 12, fontSize: 16, boxSizing: 'border-box', resize: 'vertical', marginBottom: 16, background: C.surface, color: C.fg, fontFamily: 'inherit' }} />
-        <PrimaryBtn onClick={() => onSave(truck.id, { attn, results: state, notes: noteState, general: notes, missing, odometer: +odometer || 0, idleHrs: +idleHrs || 0 })} color={attn ? C.warn : C.accent}>
+        <PrimaryBtn onClick={() => onSave(truck.id, { attn, results: state, notes: noteState, general: notes, missing, odometer: +odometer || 0, idleHrs: +idleHrs || 0, media })} color={attn ? C.warn : C.accent}>
           <Icon name="checkc" size={18} /> {attn ? `Complete check (${attn} flagged)` : 'Complete check'}
         </PrimaryBtn>
       </div>

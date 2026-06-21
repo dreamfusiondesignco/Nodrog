@@ -144,41 +144,6 @@ export function Header({ title, sub, onBack, action }) {
   );
 }
 
-// Photo placeholder slot (camera/upload affordance)
-export function PhotoSlot({ label = "Add photo", filled }) {
-  const [added, setAdded] = useState(filled);
-  return (
-    <button onClick={() => setAdded(true)} style={{
-      width: 84, height: 84, flexShrink: 0, borderRadius: 12, cursor: "pointer",
-      border: `1.5px dashed ${added ? C.accent : C.border}`,
-      background: added ? C.accent + "14" : C.surface2, color: added ? C.accent : C.mutedFg,
-      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 5,
-      fontSize: 10.5, fontWeight: 700, padding: 4,
-    }}>
-      <Icon name="camera" size={22} />
-      <span style={{ textAlign: "center", lineHeight: 1.1 }}>{added ? "Photo ✓" : label}</span>
-    </button>
-  );
-}
-
-// Media slot — photo OR video upload affordance (user fills in the real app)
-export function MediaSlot({ label, kind = "photo" }) {
-  const [added, setAdded] = useState(false);
-  const isVid = kind === "video";
-  return (
-    <button onClick={() => setAdded(true)} style={{
-      width: 84, height: 84, flexShrink: 0, borderRadius: 12, cursor: "pointer",
-      border: `1.5px dashed ${added ? C.accent : C.border}`,
-      background: added ? C.accent + "14" : C.surface2, color: added ? C.accent : C.mutedFg,
-      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 5,
-      fontSize: 10.5, fontWeight: 700, padding: 4,
-    }}>
-      <Icon name={isVid ? "video" : "camera"} size={22} />
-      <span style={{ textAlign: "center", lineHeight: 1.1 }}>{added ? (isVid ? "Video ✓" : "Photo ✓") : (label || (isVid ? "Add video" : "Add photo"))}</span>
-    </button>
-  );
-}
-
 // Downscale an image File to a JPEG data URL (keeps localStorage/payloads small).
 export function fileToScaledImage(file, maxDim = 1280, quality = 0.8) {
   return new Promise((resolve) => {

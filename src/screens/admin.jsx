@@ -235,6 +235,20 @@ export function ReportDetail({ report, trucks, go }) {
           {report.general && <div style={{ marginTop: 12, fontSize: 13.5, color: C.fg, lineHeight: 1.5, borderTop: `1px solid ${C.border}`, paddingTop: 12 }}>{report.general}</div>}
           {report.missing && <div style={{ marginTop: 8, fontSize: 12.5, color: C.warn }}><b>Missing items:</b> {report.missing}</div>}
         </div>
+        {Array.isArray(report.media) && report.media.some((m) => m && m.url) && (
+          <div>
+            <SectionTitle>Photos &amp; video</SectionTitle>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {report.media.filter((m) => m && m.url).map((m, i) => (
+                <div key={i} style={{ width: 88, height: 88, borderRadius: 10, overflow: 'hidden', border: `1px solid ${C.border}`, background: C.surface2, position: 'relative' }}>
+                  {m.type === 'video'
+                    ? <><video src={m.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted playsInline /><span style={{ position: 'absolute', left: 4, bottom: 4, background: 'rgba(0,0,0,.55)', color: '#fff', fontSize: 8, fontWeight: 800, padding: '1px 4px', borderRadius: 4 }}>VIDEO</span></>
+                    : <img src={m.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         {flagged.length > 0 && <>
           <SectionTitle>Needs attention ({flagged.length})</SectionTitle>
           <div style={{ ...cardStyle(), padding: '2px 14px', borderColor: C.warn }}>

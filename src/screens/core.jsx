@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { fleetRegistry } from '../data.js';
 import { signIn } from '../lib/auth.js';
-import { C, Icon, Badge, cardStyle, rowStyle, Field, Select, PrimaryBtn, GhostBtn, Header, PhotoSlot, MediaSlot, SectionTitle, sevColor, statusColor, statusLabel, fmtDate, fmtNum, daysUntil, fileToScaledImage } from '../ui.jsx';
+import { C, Icon, Badge, cardStyle, rowStyle, Field, Select, PrimaryBtn, GhostBtn, Header, SectionTitle, sevColor, statusColor, statusLabel, fmtDate, fmtNum, daysUntil, fileToScaledImage } from '../ui.jsx';
 import markNavy from '../../public/assets/nodrog-mark.svg';
 import markLight from '../../public/assets/nodrog-mark-light.svg';
 
