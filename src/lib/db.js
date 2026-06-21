@@ -195,6 +195,19 @@ export async function insertInspection(x, user) {
   if (error) throw error;
   return inspFromRow(data);
 }
+export async function updateInspection(id, fields) {
+  if (!live()) return;
+  const row = {};
+  if ('attn' in fields) row.attn = fields.attn || 0;
+  if ('missing' in fields) row.missing = fields.missing || '';
+  if ('general' in fields) row.general = fields.general || '';
+  if ('results' in fields) row.results = fields.results || {};
+  if ('notes' in fields) row.notes = fields.notes || {};
+  if ('media' in fields) row.media = fields.media || [];
+  if (!Object.keys(row).length) return;
+  const { error } = await supabase.from('inspections').update(row).eq('id', id);
+  if (error) throw error;
+}
 export async function insertHistory(h, user) {
   if (!live()) return { ...h, id: newId('h') };
   const { data, error } = await supabase.from('service_history').insert(histToRow(h, user)).select().single();

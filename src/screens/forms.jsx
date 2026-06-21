@@ -299,15 +299,16 @@ const triBtn = (active, color) => ({
   border: `1.5px solid ${active ? color : C.border}`, background: active ? color : C.surface,
 });
 
-export function NewCheck({ truck, onSave, go }) {
-  const [state, setState] = useState({});
-  const [noteState, setNoteState] = useState({});
+export function NewCheck({ truck, existing, onSave, go }) {
+  const editing = !!existing;
+  const [state, setState] = useState(existing?.results || {});
+  const [noteState, setNoteState] = useState(existing?.notes || {});
   const [openNote, setOpenNote] = useState({});
-  const [notes, setNotes] = useState('');
-  const [missing, setMissing] = useState('');
+  const [notes, setNotes] = useState(existing?.general || '');
+  const [missing, setMissing] = useState(existing?.missing || '');
   const [odometer, setOdometer] = useState(truck.odometer ? String(truck.odometer) : '');
   const [idleHrs, setIdleHrs] = useState(truck.idleHrs ? String(truck.idleHrs) : '');
-  const [media, setMedia] = useState([]);
+  const [media, setMedia] = useState(existing?.media ? existing.media.filter((m) => m && m.url) : []);
   const set = (k, v) => setState((s) => ({ ...s, [k]: s[k] === v ? undefined : v }));
   const setNote = (k, v) => setNoteState((s) => ({ ...s, [k]: v }));
   const toggleNote = (k) => setOpenNote((s) => ({ ...s, [k]: !s[k] }));
@@ -351,7 +352,7 @@ export function NewCheck({ truck, onSave, go }) {
 
   return (
     <div>
-      <Header title="Weekly check" sub={`${truck.plate} · ${truck.model}`} onBack={() => go('truck', truck.id)} />
+      <Header title={editing ? 'Edit weekly check' : 'Weekly check'} sub={`${truck.plate} · ${truck.model}`} onBack={() => editing ? go('report', existing.id) : go('truck', truck.id)} />
       <div style={{ padding: '0 16px 20px' }}>
         <div style={{ ...cardStyle(), padding: 14, marginBottom: 14, position: 'sticky', top: 0, zIndex: 5 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}>
@@ -402,7 +403,7 @@ export function NewCheck({ truck, onSave, go }) {
         <SectionTitle>General comments</SectionTitle>
         <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} placeholder="Anything to flag for the supervisor…" style={{ width: '100%', borderRadius: 11, border: `1px solid ${C.border}`, padding: 12, fontSize: 16, boxSizing: 'border-box', resize: 'vertical', marginBottom: 16, background: C.surface, color: C.fg, fontFamily: 'inherit' }} />
         <PrimaryBtn onClick={() => onSave(truck.id, { attn, results: state, notes: noteState, general: notes, missing, odometer: +odometer || 0, idleHrs: +idleHrs || 0, media })} color={attn ? C.warn : C.accent}>
-          <Icon name="checkc" size={18} /> {attn ? `Complete check (${attn} flagged)` : 'Complete check'}
+          <Icon name="checkc" size={18} /> {editing ? (attn ? `Save changes (${attn} flagged)` : 'Save changes') : (attn ? `Complete check (${attn} flagged)` : 'Complete check')}
         </PrimaryBtn>
       </div>
     </div>

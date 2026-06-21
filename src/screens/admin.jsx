@@ -204,7 +204,7 @@ export function WeeklyReports({ inspections, trucks, go }) {
   );
 }
 
-export function ReportDetail({ report, trucks, go }) {
+export function ReportDetail({ report, trucks, go, canEdit }) {
   const truck = trucks.find((t) => t.id === report.truckId);
   const results = report.results || {};
   const notes = report.notes || {};
@@ -260,6 +260,7 @@ export function ReportDetail({ report, trucks, go }) {
           {ok.length === 0 && <div style={{ padding: 10 }}><EmptyNote>No items recorded.</EmptyNote></div>}
           {ok.map((k) => <Row key={k} k={k} v="ok" />)}
         </div>
+        {canEdit && <GhostBtn onClick={() => go('editcheck', report.id)} style={{ width: '100%', marginTop: 4 }}><Icon name="edit" size={16} /> Edit this check</GhostBtn>}
         <div style={{ height: 8 }} />
       </div>
     </div>

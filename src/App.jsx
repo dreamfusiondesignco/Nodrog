@@ -114,7 +114,7 @@ export default function App() {
     setRoute({ name, param });
     if (['dashboard', 'trucks', 'issues', 'inventory', 'more'].includes(name)) setTab(name);
     if (['newtruck', 'truck', 'newcheck', 'usepart', 'editdocs', 'newservice'].includes(name)) setTab('trucks');
-    if (['reports', 'weeklyreports', 'invoices', 'fleets', 'newpart', 'report', 'invoice', 'newinvoice'].includes(name)) setTab('more');
+    if (['reports', 'weeklyreports', 'invoices', 'fleets', 'newpart', 'report', 'editcheck', 'invoice', 'newinvoice'].includes(name)) setTab('more');
     document.querySelector('#scroll')?.scrollTo(0, 0);
   };
   const showToast = (m) => { setToast(m); clearTimeout(window.__tt); window.__tt = setTimeout(() => setToast(''), 2400); };
@@ -201,6 +201,28 @@ export default function App() {
       showToast(attn ? `Check saved · ${attn} item(s) flagged` : 'Weekly check completed');
       go('truck', truckId);
     } catch (e) { fail('Could not save check', e); }
+  };
+  const editCheck = async (id, payload) => {
+    try {
+      const insp = inspections.find((x) => x.id === id);
+      const attn = payload.attn || 0;
+      const { items: media, failed } = await db.uploadMedia(payload.media || [], user.id);
+      const patch = { attn, missing: payload.missing || '', general: payload.general || '', results: payload.results || {}, notes: payload.notes || {}, media };
+      setInspections((arr) => arr.map((x) => x.id === id ? { ...x, ...patch } : x));
+      await db.updateInspection(id, patch);
+      // reflect the (possibly changed) flag count + readings on the truck, like a fresh check
+      if (insp) {
+        const tr = trucks.find((x) => x.id === insp.truckId);
+        const status = tr?.status === 'oos' ? 'oos' : (attn ? 'due' : 'ok');
+        const upd = { status };
+        if (payload.odometer) upd.odometer = +payload.odometer;
+        if (payload.idleHrs) upd.idleHrs = +payload.idleHrs;
+        setTrucks((arr) => arr.map((x) => x.id === insp.truckId ? { ...x, ...upd } : x));
+        db.patchTruck(insp.truckId, upd).catch((e) => console.error('Truck update failed', e));
+      }
+      showToast(failed ? `Check updated · ${failed} photo(s) couldn't upload` : 'Weekly check updated');
+      go('report', id);
+    } catch (e) { fail('Could not update check', e); }
   };
   const toggleOOS = async (truck) => {
     const goingOut = truck.status !== 'oos';
@@ -293,12 +315,13 @@ export default function App() {
     case 'inventory': screen = <Inventory parts={vParts} multiFleet={multiFleet} fleetIds={myFleets} go={go} onAdjust={adjustPart} canEdit={canEdit} />; break;
     case 'newpart': screen = <NewPart fleetIds={myFleets} onSave={addPart} go={go} />; break;
     case 'newcheck': screen = <NewCheck truck={trucks.find((x) => x.id === route.param)} onSave={saveCheck} go={go} />; break;
+    case 'editcheck': { const insp = inspections.find((x) => x.id === route.param); const tr = insp && trucks.find((t2) => t2.id === insp.truckId); screen = (insp && tr) ? <NewCheck truck={tr} existing={insp} onSave={(_, payload) => editCheck(insp.id, payload)} go={go} /> : <WeeklyReports inspections={vInspections} trucks={trucks} go={go} />; break; }
     case 'usepart': screen = <NewUsage truck={trucks.find((x) => x.id === route.param)} parts={vParts} onSave={recordUsage} go={go} />; break;
     case 'editdocs': screen = isAdmin ? <EditDocs truck={trucks.find((x) => x.id === route.param)} onSave={updateTruckDocs} go={go} /> : <TruckDetail truck={trucks.find((x) => x.id === route.param)} issues={issues} usage={usage} parts={parts} history={history} go={go} onToggleOOS={toggleOOS} onPhoto={setTruckPhoto} canEdit={canEdit} canEditTruck={isAdmin} />; break;
     case 'newservice': screen = <NewService truck={trucks.find((x) => x.id === route.param)} onSave={addService} go={go} />; break;
     case 'reports': screen = <Reports trucks={vTrucks} issues={vIssues} parts={vParts} fleet={fleet} go={go} />; break;
     case 'weeklyreports': screen = <WeeklyReports inspections={vInspections} trucks={trucks} go={go} />; break;
-    case 'report': { const r = inspections.find((x) => x.id === route.param); screen = r ? <ReportDetail report={r} trucks={trucks} go={go} /> : <WeeklyReports inspections={vInspections} trucks={trucks} go={go} />; break; }
+    case 'report': { const r = inspections.find((x) => x.id === route.param); screen = r ? <ReportDetail report={r} trucks={trucks} go={go} canEdit={canEdit} /> : <WeeklyReports inspections={vInspections} trucks={trucks} go={go} />; break; }
     case 'fleets': screen = <ManageFleets fleets={fleets} trucks={trucks} parts={parts} onAdd={addFleet} go={go} />; break;
     case 'invoices': screen = <Invoices invoices={vInvoices} trucks={trucks} go={go} />; break;
     case 'invoice': { const inv = invoices.find((x) => x.id === route.param); screen = inv ? <InvoiceDetail invoice={inv} trucks={trucks} onStatus={setInvoiceStatus} go={go} /> : <Invoices invoices={vInvoices} trucks={trucks} go={go} />; break; }
