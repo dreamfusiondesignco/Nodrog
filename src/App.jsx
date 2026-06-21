@@ -184,6 +184,25 @@ export default function App() {
     try { await Promise.all(ids.map((id) => db.deleteIssue(id))); showToast(`${ids.length} issue${ids.length > 1 ? 's' : ''} deleted`); }
     catch (e) { fail('Could not delete issues', e); }
   };
+  // Turn a check's flagged ("needs attention") items into open issues on the truck.
+  // Skips items that already have an open issue so weekly re-checks don't duplicate.
+  const createIssuesFromCheck = async (truck, results, notes) => {
+    if (!truck) return 0;
+    const flagged = Object.keys(results || {}).filter((k) => results[k] === 'attn');
+    if (!flagged.length) return 0;
+    const openTitles = new Set(issues.filter((i) => i.truckId === truck.id && i.status === 'open').map((i) => i.title));
+    let created = 0;
+    for (const key of flagged) {
+      if (openTitles.has(key)) continue;
+      try {
+        const saved = await db.insertIssue({ fleet: truck.fleet, truckId: truck.id, title: key, detail: (notes && notes[key]) || 'Flagged during the weekly inspection.', severity: 'medium', status: 'open', serious: false, oos: false, partsNeeded: '', date: today, by: user.name }, user);
+        setIssues((arr) => [saved, ...arr]);
+        openTitles.add(key);
+        created++;
+      } catch (e) { console.error('Could not create issue from check', e); }
+    }
+    return created;
+  };
   const saveCheck = async (truckId, payload) => {
     try {
       const tr = trucks.find((x) => x.id === truckId);
@@ -198,7 +217,8 @@ export default function App() {
       if (payload.idleHrs) upd.idleHrs = +payload.idleHrs;
       setTrucks((arr) => arr.map((x) => x.id === truckId ? { ...x, ...upd } : x));
       db.patchTruck(truckId, upd).catch((e) => console.error('Truck status update failed', e));
-      showToast(attn ? `Check saved · ${attn} item(s) flagged` : 'Weekly check completed');
+      const made = await createIssuesFromCheck(tr, payload.results, payload.notes);
+      showToast(attn ? `Check saved · ${attn} flagged${made ? ` · ${made} issue${made > 1 ? 's' : ''} logged` : ''}` : 'Weekly check completed');
       go('truck', truckId);
     } catch (e) { fail('Could not save check', e); }
   };
@@ -211,6 +231,7 @@ export default function App() {
       setInspections((arr) => arr.map((x) => x.id === id ? { ...x, ...patch } : x));
       await db.updateInspection(id, patch);
       // reflect the (possibly changed) flag count + readings on the truck, like a fresh check
+      let made = 0;
       if (insp) {
         const tr = trucks.find((x) => x.id === insp.truckId);
         const status = tr?.status === 'oos' ? 'oos' : (attn ? 'due' : 'ok');
@@ -219,8 +240,9 @@ export default function App() {
         if (payload.idleHrs) upd.idleHrs = +payload.idleHrs;
         setTrucks((arr) => arr.map((x) => x.id === insp.truckId ? { ...x, ...upd } : x));
         db.patchTruck(insp.truckId, upd).catch((e) => console.error('Truck update failed', e));
+        made = await createIssuesFromCheck(tr, payload.results, payload.notes);
       }
-      showToast(failed ? `Check updated · ${failed} photo(s) couldn't upload` : 'Weekly check updated');
+      showToast(failed ? `Check updated · ${failed} photo(s) couldn't upload` : (made ? `Check updated · ${made} new issue${made > 1 ? 's' : ''} logged` : 'Weekly check updated'));
       go('report', id);
     } catch (e) { fail('Could not update check', e); }
   };
