@@ -359,7 +359,7 @@ export function Trucks({ fleet, multiFleet, fleetIds = ['IGL', 'MASSY'], trucks,
         {trucks.length > 0 && list.length === 0 && (
           <EmptyNote icon="search">No trucks match {query ? `“${q.trim()}”` : 'these filters'}. <button onClick={() => { setQ(''); setF('ALL'); setStatus('all'); }} style={{ border: 'none', background: 'transparent', color: C.accent, fontWeight: 700, cursor: 'pointer', padding: 0, font: 'inherit' }}>Clear</button></EmptyNote>
         )}
-        {list.map((t) => {
+        <div className="nm-cardgrid">{list.map((t) => {
           const svc = serviceDue(t);
           const milesLeft = svc.milesLeft;
           return (
@@ -395,7 +395,7 @@ export function Trucks({ fleet, multiFleet, fleetIds = ['IGL', 'MASSY'], trucks,
               </div>
             </button>
           );
-        })}
+        })}</div>
         <div style={{ height: 8 }} />
       </div>
     </div>

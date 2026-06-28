@@ -8,3 +8,14 @@ button:focus-visible, a:focus-visible { outline: 2px solid #1E63D6; outline-offs
 ::-webkit-scrollbar { width: 0; height: 0; }
 @keyframes nm-spin { to { transform: rotate(360deg); } }
 .nm-spin { animation: nm-spin .7s linear infinite; }
+
+/* sidebar nav hover (tablet/desktop) */
+.nm-side-item { transition: background .12s ease, color .12s ease; }
+.nm-side-item:hover { background: rgba(122,134,154,.14); }
+
+/* responsive card grid — 1 column on phones, multi-column as width allows */
+.nm-cardgrid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+@media (hover: hover) {
+  .nm-cardgrid > button { transition: transform .14s ease, box-shadow .14s ease; }
+  .nm-cardgrid > button:hover { transform: translateY(-2px); box-shadow: 0 14px 30px -16px rgba(11,26,43,.4); }
+}

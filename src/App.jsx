@@ -368,9 +368,11 @@ export default function App() {
 
   const doSignOut = async () => { if (confirm('Sign out?')) { await authSignOut(); setUser(null); go('dashboard'); } };
 
+  // Detail/form screens read better in a narrower column; lists/overviews use the wider grid column.
+  const narrowRoutes = ['truck', 'report', 'invoice', 'newtruck', 'newissue', 'editissue', 'newcheck', 'editcheck', 'usepart', 'editdocs', 'newservice', 'newpart', 'newinvoice'];
   const content = (
     <div id="scroll" style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: 18 }}>
-      {desktop ? <div style={{ maxWidth: 760, margin: '0 auto', padding: '6px 8px 24px' }}>{screen}</div> : screen}
+      {desktop ? <div style={{ maxWidth: narrowRoutes.includes(route.name) ? 640 : 860, margin: '0 auto', padding: '10px 10px 28px' }}>{screen}</div> : screen}
     </div>
   );
 
@@ -386,11 +388,13 @@ export default function App() {
         <div style={{ display: 'flex', height: '100%', minHeight: 0 }}>
           <aside style={{ width: 252, flexShrink: 0, height: '100%', background: C.surface, borderRight: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', padding: '20px 14px', boxSizing: 'border-box' }}>
             <div style={{ padding: '4px 8px 20px' }}><Logo size={28} light={userTheme === 'midnight'} /></div>
-            <nav style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.08em', color: C.mutedFg, padding: '0 14px 8px' }}>MENU</div>
+            <nav style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
               {nav.map((n) => {
                 const active = tab === n.id;
                 return (
-                  <button key={n.id} onClick={() => go(n.id)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', borderRadius: 12, border: 'none', cursor: 'pointer', background: active ? C.accent + '14' : 'transparent', color: active ? C.accent : C.mutedFg, font: 'inherit', fontWeight: active ? 800 : 600, fontSize: 15, textAlign: 'left' }}>
+                  <button key={n.id} className="nm-side-item" onClick={() => go(n.id)} style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px 11px 16px', borderRadius: 12, border: 'none', cursor: 'pointer', background: active ? C.accent + '16' : 'transparent', color: active ? C.accent : C.mutedFg, font: 'inherit', fontWeight: active ? 800 : 600, fontSize: 15, textAlign: 'left' }}>
+                    {active && <span style={{ position: 'absolute', left: 3, top: 9, bottom: 9, width: 3.5, borderRadius: 999, background: C.accent }} />}
                     <Icon name={n.icon} size={20} strokeWidth={active ? 2.3 : 1.9} /> {n.label}
                   </button>
                 );

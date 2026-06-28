@@ -265,7 +265,7 @@ export function Inventory({ parts, multiFleet, fleetIds = ['IGL', 'MASSY'], go, 
           </div>
         )}
         {list.length === 0 && <EmptyNote icon="search">No parts match{q.trim() ? ` “${q.trim()}”` : ' these filters'}.</EmptyNote>}
-        {list.map((p) => {
+        <div className="nm-cardgrid">{list.map((p) => {
           const isLow = p.qty <= p.min;
           return (
             <div key={p.id} style={{ ...cardStyle(), padding: 13, display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -286,7 +286,7 @@ export function Inventory({ parts, multiFleet, fleetIds = ['IGL', 'MASSY'], go, 
               </div>}
             </div>
           );
-        })}
+        })}</div>
         <div style={{ height: 8 }} />
       </div>
     </div>
