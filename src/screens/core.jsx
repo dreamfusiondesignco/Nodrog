@@ -104,7 +104,8 @@ export function Login({ onLogin }) {
     else setErr(res.error || 'Sign in failed.');
   };
   return (
-    <div style={{ minHeight: '100%', background: `linear-gradient(165deg, ${C.primary} 0%, #0A1B2B 55%, #0B2238 100%)`, display: 'flex', flexDirection: 'column', padding: '0 22px', overflowY: 'auto' }}>
+    <div style={{ minHeight: '100%', background: `linear-gradient(165deg, ${C.primary} 0%, #0A1B2B 55%, #0B2238 100%)`, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 22px', overflowY: 'auto' }}>
+      <div style={{ width: '100%', maxWidth: 420, display: 'flex', flexDirection: 'column' }}>
       <div style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 56px)', marginBottom: 30 }}><Logo size={50} light /></div>
       <h1 style={{ color: '#fff', fontSize: 27, fontWeight: 800, margin: '0 0 6px', letterSpacing: '-.01em' }}>Fleet Maintenance</h1>
       <p style={{ color: '#9FB3C8', fontSize: 14, margin: '0 0 22px' }}>Sign in with your Nodrog account.</p>
@@ -126,6 +127,7 @@ export function Login({ onLogin }) {
       </div>
       <div style={{ marginTop: 18, paddingBottom: 28, color: '#6E8198', fontSize: 12, lineHeight: 1.5 }}>
         Trouble signing in? Contact your fleet administrator to set up or reset your account.
+      </div>
       </div>
     </div>
   );

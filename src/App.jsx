@@ -35,6 +35,8 @@ export default function App() {
   const [route, setRoute] = useState({ name: 'dashboard', param: null });
   const [tab, setTab] = useState('dashboard');
   const [toast, setToast] = useState('');
+  // Tablet/desktop (≥760px wide and tall enough) get the sidebar layout; phones keep the bottom nav.
+  const [desktop, setDesktop] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 760 && window.innerHeight >= 640);
 
   const [fleets, setFleets] = useState(() => LS.get('nm_fleets', FLEETS));
   const [trucks, setTrucks] = useState(() => LS.get('nm_trucks', []));
@@ -86,6 +88,10 @@ export default function App() {
   }, []);
 
   useEffect(() => LS.set('nm_user', user), [user]);
+  useEffect(() => {
+    const f = () => setDesktop(window.innerWidth >= 760 && window.innerHeight >= 640);
+    window.addEventListener('resize', f); return () => window.removeEventListener('resize', f);
+  }, []);
   useEffect(() => LS.set('nm_fleets', fleets), [fleets]);
   useEffect(() => LS.set('nm_trucks', trucks), [trucks]);
   useEffect(() => LS.set('nm_issues', issues), [issues]);
@@ -360,6 +366,63 @@ export default function App() {
     { id: 'more', icon: 'dots', label: 'More' },
   ];
 
+  const doSignOut = async () => { if (confirm('Sign out?')) { await authSignOut(); setUser(null); go('dashboard'); } };
+
+  const content = (
+    <div id="scroll" style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: 18 }}>
+      {desktop ? <div style={{ maxWidth: 760, margin: '0 auto', padding: '6px 8px 24px' }}>{screen}</div> : screen}
+    </div>
+  );
+
+  const toastEl = toast && (
+    <div style={{ position: 'absolute', bottom: desktop ? 22 : 84, ...(desktop ? { right: 22 } : { left: '50%', transform: 'translateX(-50%)' }), background: C.primary, color: '#fff', padding: '11px 18px', borderRadius: 999, fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8, boxShadow: '0 8px 24px rgba(0,0,0,.35)', maxWidth: '90%', zIndex: 30 }}>
+      <Icon name="checkc" size={16} color={C.accent2} /> {toast}
+    </div>
+  );
+
+  if (desktop) {
+    return (
+      <PhoneFrame brandFont={FONTS[t.font]}>
+        <div style={{ display: 'flex', height: '100%', minHeight: 0 }}>
+          <aside style={{ width: 252, flexShrink: 0, height: '100%', background: C.surface, borderRight: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', padding: '20px 14px', boxSizing: 'border-box' }}>
+            <div style={{ padding: '4px 8px 20px' }}><Logo size={28} light={userTheme === 'midnight'} /></div>
+            <nav style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {nav.map((n) => {
+                const active = tab === n.id;
+                return (
+                  <button key={n.id} onClick={() => go(n.id)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', borderRadius: 12, border: 'none', cursor: 'pointer', background: active ? C.accent + '14' : 'transparent', color: active ? C.accent : C.mutedFg, font: 'inherit', fontWeight: active ? 800 : 600, fontSize: 15, textAlign: 'left' }}>
+                    <Icon name={n.icon} size={20} strokeWidth={active ? 2.3 : 1.9} /> {n.label}
+                  </button>
+                );
+              })}
+            </nav>
+            <div style={{ flex: 1 }} />
+            {multiFleet && (
+              <select value={fleet} onChange={(e) => setFleet(e.target.value)} aria-label="Viewing fleet" style={{ width: '100%', minHeight: 42, borderRadius: 11, border: `1px solid ${C.border}`, padding: '0 12px', fontSize: 14, fontWeight: 700, background: C.surface, color: C.fg, boxSizing: 'border-box', cursor: 'pointer', marginBottom: 12 }}>
+                <option value="ALL">All fleets</option>
+                {myFleets.map((k) => <option key={k} value={k}>{fleetRegistry[k]?.name || k}</option>)}
+              </select>
+            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 12, borderTop: `1px solid ${C.border}` }}>
+              <div style={{ width: 38, height: 38, borderRadius: 999, background: C.primary, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Icon name="user" size={18} /></div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 800, fontSize: 13.5, color: C.fg, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.name}</div>
+                <div style={{ fontSize: 11.5, color: C.mutedFg }}>{user.role}</div>
+              </div>
+              <button onClick={doSignOut} aria-label="Sign out" style={{ width: 34, height: 34, borderRadius: 999, border: `1px solid ${C.border}`, background: C.surface, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.mutedFg, flexShrink: 0 }}><Icon name="logout" size={16} /></button>
+            </div>
+          </aside>
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' }}>
+            {content}
+            {toastEl}
+          </div>
+        </div>
+        <InstallPrompt />
+        {Tweaks}
+      </PhoneFrame>
+    );
+  }
+
   return (
     <PhoneFrame brandFont={FONTS[t.font]}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'calc(env(safe-area-inset-top, 0px) + 14px) 14px 8px', background: C.surface, borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
@@ -371,20 +434,13 @@ export default function App() {
               <span style={{ fontSize: 12, fontWeight: 800, color: C.fg }}>{fleetRegistry[fleet]?.name || fleet}</span>
             </span>
           )}
-          <button onClick={async () => { if (confirm('Sign out?')) { await authSignOut(); setUser(null); go('dashboard'); } }} aria-label="Sign out" style={{ width: 38, height: 38, borderRadius: 999, border: `1px solid ${C.border}`, background: C.surface, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.mutedFg }}>
+          <button onClick={doSignOut} aria-label="Sign out" style={{ width: 38, height: 38, borderRadius: 999, border: `1px solid ${C.border}`, background: C.surface, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.mutedFg }}>
             <Icon name="logout" size={17} />
           </button>
         </div>
       </div>
-
-      <div id="scroll" style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: 18 }}>{screen}</div>
-
-      {toast && (
-        <div style={{ position: 'absolute', bottom: 84, left: '50%', transform: 'translateX(-50%)', background: C.primary, color: '#fff', padding: '11px 18px', borderRadius: 999, fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8, boxShadow: '0 8px 24px rgba(0,0,0,.35)', maxWidth: '90%', zIndex: 30 }}>
-          <Icon name="checkc" size={16} color={C.accent2} /> {toast}
-        </div>
-      )}
-
+      {content}
+      {toastEl}
       <nav style={{ display: 'flex', borderTop: `1px solid ${C.border}`, background: C.navBg, flexShrink: 0, paddingBottom: 'env(safe-area-inset-bottom)' }}>
         {nav.map((n) => {
           const active = tab === n.id;

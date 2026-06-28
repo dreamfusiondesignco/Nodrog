@@ -260,26 +260,14 @@ export const SectionTitle = ({ children, right }) => (
   </div>
 );
 
-// ---------- adaptive phone frame ----------
+// ---------- responsive full-screen app shell ----------
+// Fills the viewport on every device. App.jsx lays out a sidebar on
+// tablet/desktop and a bottom nav on phones.
 export function PhoneFrame({ children, brandFont }) {
-  const [wide, setWide] = useState(typeof window !== "undefined" && window.innerWidth > 520);
-  useEffect(() => {
-    const f = () => setWide(window.innerWidth > 520);
-    window.addEventListener("resize", f); return () => window.removeEventListener("resize", f);
-  }, []);
-  const screen = (
-    <div style={{ width: "100%", height: "100%", background: C.bg, position: "relative", overflow: "hidden", display: "flex", flexDirection: "column", fontFamily: brandFont }}>
-      {children}
-    </div>
-  );
-  if (!wide) {
-    return <div style={{ position: "fixed", inset: 0, fontFamily: brandFont }}>{screen}</div>;
-  }
   return (
-    <div style={{ minHeight: "100vh", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: "#0A0F16", padding: 24, boxSizing: "border-box", fontFamily: brandFont }}>
-      <div style={{ width: 402, height: 844, maxHeight: "94vh", borderRadius: 46, padding: 12, background: "linear-gradient(145deg,#222C39,#0D131C)", boxShadow: "0 40px 90px rgba(0,0,0,.55), inset 0 1px 2px rgba(255,255,255,.12)", position: "relative" }}>
-        <div style={{ position: "absolute", top: 22, left: "50%", transform: "translateX(-50%)", width: 120, height: 30, background: "#05080D", borderRadius: 999, zIndex: 50 }} />
-        <div style={{ width: "100%", height: "100%", borderRadius: 36, overflow: "hidden", position: "relative" }}>{screen}</div>
+    <div style={{ position: "fixed", inset: 0, fontFamily: brandFont, background: C.bg }}>
+      <div style={{ width: "100%", height: "100%", background: C.bg, position: "relative", overflow: "hidden", display: "flex", flexDirection: "column", fontFamily: brandFont }}>
+        {children}
       </div>
     </div>
   );
