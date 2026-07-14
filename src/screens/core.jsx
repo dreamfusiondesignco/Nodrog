@@ -20,9 +20,9 @@ function TruckThumb({ truck, size = 66, height = 54 }) {
   const [broken, setBroken] = useState(false);
   const src = !broken && (truck.photoUrl || readPhotoCache(truck.id));
   return (
-    <div style={{ width: size, height, borderRadius: 11, background: C.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.mutedFg, flexShrink: 0, overflow: 'hidden' }}>
+    <div style={{ width: size, height, borderRadius: 11, background: src ? '#0B1A2B' : C.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.mutedFg, flexShrink: 0, overflow: 'hidden' }}>
       {src
-        ? <img src={src} alt={`${truck.plate}`} loading="lazy" onError={() => setBroken(true)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        ? <img src={src} alt={`${truck.plate}`} loading="lazy" onError={() => setBroken(true)} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
         : <Icon name="truck" size={26} />}
     </div>
   );
@@ -56,7 +56,7 @@ function TruckPhoto({ truck, editable = true, onUpload, height = 172 }) {
       onDragOver={editable ? (e) => e.preventDefault() : undefined}
       style={{ width: '100%', height, background: hasImg ? '#0B1A2B' : C.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: editable ? 'pointer' : 'default', borderBottom: `1px solid ${C.border}`, position: 'relative', overflow: 'hidden' }}>
       {hasImg
-        ? <img src={src} alt={`${truck.plate} photo`} onError={() => setBroken(true)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        ? <img src={src} alt={`${truck.plate} photo`} onError={() => setBroken(true)} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
         : <div style={{ textAlign: 'center', color: C.mutedFg }}>
             <Icon name={editable ? 'camera' : 'truck'} size={28} />
             <div style={{ fontSize: 12, marginTop: 6, fontWeight: 600 }}>{editable ? 'Tap to add truck photo' : 'No photo yet'}</div>
