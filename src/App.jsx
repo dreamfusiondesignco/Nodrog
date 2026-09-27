@@ -127,8 +127,11 @@ export default function App() {
 
   const today = new Date().toISOString().slice(0, 10);
   const fail = (msg, e) => { console.error(msg, e); showToast(`${msg}${e?.message ? ': ' + e.message : ''}`); };
+  // Write guard: only admins (Orlando & Rolando) may change data. Returns true when blocked.
+  const denied = () => { if (user?.admin) return false; showToast('View only — ask Orlando or Rolando to make changes'); return true; };
 
   const addTruck = async (d) => {
+    if (denied()) return;
     const odo = +d.odometer || 0;
     const idle = +d.idleHrs || 0;
     const base = {
@@ -148,6 +151,7 @@ export default function App() {
     catch (e) { fail('Could not save truck', e); }
   };
   const saveIssue = async ({ truckId, title, detail, severity, serious, oos, partsNeeded, media }) => {
+    if (denied()) return;
     try {
       const tr = trucks.find((t2) => t2.id === truckId);
       const { items: photos, failed } = await db.uploadMedia(media || [], user.id);
@@ -163,6 +167,7 @@ export default function App() {
     } catch (e) { fail('Could not save issue', e); }
   };
   const editIssue = async (id, fields) => {
+    if (denied()) return;
     try {
       let { media, ...rest } = fields;
       let failed = 0;
@@ -179,11 +184,13 @@ export default function App() {
     } catch (e) { fail('Could not update issue', e); }
   };
   const removeIssue = async (id) => {
+    if (denied()) return;
     setIssues((arr) => arr.filter((i) => i.id !== id));
     try { await db.deleteIssue(id); showToast('Issue deleted'); } catch (e) { fail('Could not delete issue', e); }
     go('issues');
   };
   const removeIssues = async (ids) => {
+    if (denied()) return;
     if (!ids || !ids.length) return;
     const set = new Set(ids);
     setIssues((arr) => arr.filter((i) => !set.has(i.id)));
@@ -210,6 +217,7 @@ export default function App() {
     return created;
   };
   const saveCheck = async (truckId, payload) => {
+    if (denied()) return;
     try {
       const tr = trucks.find((x) => x.id === truckId);
       const attn = payload.attn || 0;
@@ -229,6 +237,7 @@ export default function App() {
     } catch (e) { fail('Could not save check', e); }
   };
   const editCheck = async (id, payload) => {
+    if (denied()) return;
     try {
       const insp = inspections.find((x) => x.id === id);
       const attn = payload.attn || 0;
@@ -253,6 +262,7 @@ export default function App() {
     } catch (e) { fail('Could not update check', e); }
   };
   const toggleOOS = async (truck) => {
+    if (denied()) return;
     const goingOut = truck.status !== 'oos';
     const status = goingOut ? 'oos' : 'due';
     setTrucks((arr) => arr.map((tr) => tr.id === truck.id ? { ...tr, status } : tr));
@@ -260,31 +270,37 @@ export default function App() {
     catch (e) { fail('Could not update status', e); }
   };
   const adjustPart = async (id, d) => {
+    if (denied()) return;
     const p = parts.find((x) => x.id === id); if (!p) return;
     const qty = Math.max(0, p.qty + d);
     setParts((arr) => arr.map((x) => x.id === id ? { ...x, qty } : x));
     try { await db.updatePartQty(id, qty); } catch (e) { fail('Stock update failed', e); }
   };
   const addPart = async (p) => {
+    if (denied()) return;
     try { const saved = await db.insertPart({ ...p }); setParts((arr) => [saved, ...arr]); showToast(`Part "${saved.name}" added`); go('inventory'); }
     catch (e) { fail('Could not add part', e); }
   };
   const addFleet = async (f) => {
+    if (denied()) return;
     if (fleets[f.id]) { showToast('That fleet already exists'); return; }
     try { const saved = await db.insertFleet(f); setFleets((m) => ({ ...m, [saved.id]: saved })); showToast(`Fleet "${saved.name}" created`); }
     catch (e) { fail('Could not add fleet', e); }
   };
   const addInvoice = async (inv) => {
+    if (denied()) return;
     const num = 'NL-' + (1044 + invoices.length + 1);
     try { const saved = await db.insertInvoice({ number: num, status: 'draft', date: today, ...inv }); setInvoices((arr) => [saved, ...arr]); showToast(`Invoice ${saved.number} created`); go('invoices'); }
     catch (e) { fail('Could not create invoice', e); }
   };
   const setInvoiceStatus = async (id, status) => {
+    if (denied()) return;
     setInvoices((arr) => arr.map((i) => i.id === id ? { ...i, status } : i));
     try { await db.updateInvoiceStatus(id, status); showToast(`Invoice marked ${status}`); }
     catch (e) { fail('Status update failed', e); }
   };
   const recordUsage = async (truckId, { partId, qty, date, note }) => {
+    if (denied()) return;
     try {
       const saved = await db.insertUsage({ partId, truckId, qty, date, by: user.name, note }, user);
       setUsage((arr) => [saved, ...arr]);
@@ -295,11 +311,13 @@ export default function App() {
     } catch (e) { fail('Could not record part', e); }
   };
   const updateTruckDocs = async (truckId, fields) => {
+    if (denied()) return;
     setTrucks((arr) => arr.map((tr) => tr.id === truckId ? { ...tr, ...fields } : tr));
     try { await db.patchTruck(truckId, fields); showToast('Truck details updated'); } catch (e) { fail('Could not save details', e); }
     go('truck', truckId);
   };
   const setTruckPhoto = async (truckId, dataUrl) => {
+    if (denied()) return;
     // optimistic: show the new photo right away; the component also caches it locally
     setTrucks((arr) => arr.map((tr) => tr.id === truckId ? { ...tr, photoUrl: dataUrl } : tr));
     try {
@@ -314,6 +332,7 @@ export default function App() {
     } catch (e) { fail('Could not save photo', e); }
   };
   const addService = async (truckId, rec) => {
+    if (denied()) return;
     try { const saved = await db.insertHistory({ truckId, by: user.name, ...rec }, user); setHistory((arr) => [saved, ...arr]); showToast('Service record added'); go('truck', truckId); }
     catch (e) { fail('Could not add service record', e); }
   };
@@ -330,32 +349,38 @@ export default function App() {
 
   if (!user) return <PhoneFrame brandFont={FONTS[t.font]}><Login onLogin={async (u) => { setUser(u); setFleet('ALL'); go('dashboard'); await loadData(); await loadUserTheme(u); }} /><InstallPrompt />{Tweaks}</PhoneFrame>;
 
-  const canEdit = true;            // operational actions (checks, issues, parts) — any signed-in user
-  const isAdmin = !!user.admin;    // truck create/edit + invoices/fleets — admins only
+  // Only the main users (Orlando & Rolando — the admin accounts) can add, edit or delete
+  // anything: trucks, issues, checks, service history, parts, invoices, fleets and media.
+  // Everyone else gets a read-only view. The database enforces the same rule (see
+  // supabase/admin_only_writes.sql), so hiding the buttons is not the only safeguard.
+  const isAdmin = !!user.admin;
+  const canEdit = isAdmin;
+  const readOnly = (el) => (isAdmin ? el : home);
+  const home = <Dashboard user={user} fleet={fleet} trucks={vTrucks} issues={vIssues} parts={vParts} go={go} />;
   let screen;
   switch (route.name) {
     case 'trucks': screen = <Trucks fleet={fleet} multiFleet={multiFleet} fleetIds={myFleets} trucks={vTrucks} go={go} canEdit={isAdmin} />; break;
     case 'newtruck': screen = isAdmin ? <NewTruck fleetIds={myFleets} onSave={addTruck} go={go} /> : <Trucks fleet={fleet} multiFleet={multiFleet} fleetIds={myFleets} trucks={vTrucks} go={go} canEdit={isAdmin} />; break;
     case 'truck': { const tr = trucks.find((x) => x.id === route.param); screen = tr ? <TruckDetail truck={tr} issues={issues} usage={usage} parts={parts} history={history} go={go} onToggleOOS={toggleOOS} onPhoto={setTruckPhoto} canEdit={canEdit} canEditTruck={isAdmin} /> : <Trucks fleet={fleet} multiFleet={multiFleet} fleetIds={myFleets} trucks={vTrucks} go={go} canEdit={isAdmin} />; break; }
     case 'issues': screen = <Issues trucks={trucks} issues={vIssues} go={go} canEdit={canEdit} onDelete={removeIssues} />; break;
-    case 'newissue': screen = <NewIssue trucks={vTrucks} preTruck={route.param} onSave={saveIssue} go={go} />; break;
-    case 'editissue': { const iss = issues.find((x) => x.id === route.param); screen = iss ? <EditIssue issue={iss} trucks={trucks} onSave={editIssue} onDelete={removeIssue} go={go} /> : <Issues trucks={trucks} issues={vIssues} go={go} canEdit={canEdit} />; break; }
+    case 'newissue': screen = readOnly(<NewIssue trucks={vTrucks} preTruck={route.param} onSave={saveIssue} go={go} />); break;
+    case 'editissue': { const iss = issues.find((x) => x.id === route.param); screen = (iss && isAdmin) ? <EditIssue issue={iss} trucks={trucks} onSave={editIssue} onDelete={removeIssue} go={go} /> : <Issues trucks={trucks} issues={vIssues} go={go} canEdit={canEdit} />; break; }
     case 'inventory': screen = <Inventory parts={vParts} multiFleet={multiFleet} fleetIds={myFleets} go={go} onAdjust={adjustPart} canEdit={canEdit} />; break;
-    case 'newpart': screen = <NewPart fleetIds={myFleets} onSave={addPart} go={go} />; break;
-    case 'newcheck': screen = <NewCheck truck={trucks.find((x) => x.id === route.param)} onSave={saveCheck} go={go} />; break;
-    case 'editcheck': { const insp = inspections.find((x) => x.id === route.param); const tr = insp && trucks.find((t2) => t2.id === insp.truckId); screen = (insp && tr) ? <NewCheck truck={tr} existing={insp} onSave={(_, payload) => editCheck(insp.id, payload)} go={go} /> : <WeeklyReports inspections={vInspections} trucks={trucks} go={go} />; break; }
-    case 'usepart': screen = <NewUsage truck={trucks.find((x) => x.id === route.param)} parts={vParts} onSave={recordUsage} go={go} />; break;
+    case 'newpart': screen = readOnly(<NewPart fleetIds={myFleets} onSave={addPart} go={go} />); break;
+    case 'newcheck': screen = readOnly(<NewCheck truck={trucks.find((x) => x.id === route.param)} onSave={saveCheck} go={go} />); break;
+    case 'editcheck': { const insp = inspections.find((x) => x.id === route.param); const tr = insp && trucks.find((t2) => t2.id === insp.truckId); screen = (insp && tr && isAdmin) ? <NewCheck truck={tr} existing={insp} onSave={(_, payload) => editCheck(insp.id, payload)} go={go} /> : <WeeklyReports inspections={vInspections} trucks={trucks} go={go} />; break; }
+    case 'usepart': screen = readOnly(<NewUsage truck={trucks.find((x) => x.id === route.param)} parts={vParts} onSave={recordUsage} go={go} />); break;
     case 'editdocs': screen = isAdmin ? <EditDocs truck={trucks.find((x) => x.id === route.param)} onSave={updateTruckDocs} go={go} /> : <TruckDetail truck={trucks.find((x) => x.id === route.param)} issues={issues} usage={usage} parts={parts} history={history} go={go} onToggleOOS={toggleOOS} onPhoto={setTruckPhoto} canEdit={canEdit} canEditTruck={isAdmin} />; break;
-    case 'newservice': screen = <NewService truck={trucks.find((x) => x.id === route.param)} onSave={addService} go={go} />; break;
+    case 'newservice': screen = readOnly(<NewService truck={trucks.find((x) => x.id === route.param)} onSave={addService} go={go} />); break;
     case 'reports': screen = <Reports trucks={vTrucks} issues={vIssues} parts={vParts} fleet={fleet} go={go} />; break;
     case 'weeklyreports': screen = <WeeklyReports inspections={vInspections} trucks={trucks} go={go} />; break;
     case 'report': { const r = inspections.find((x) => x.id === route.param); screen = r ? <ReportDetail report={r} trucks={trucks} go={go} canEdit={canEdit} /> : <WeeklyReports inspections={vInspections} trucks={trucks} go={go} />; break; }
-    case 'fleets': screen = <ManageFleets fleets={fleets} trucks={trucks} parts={parts} onAdd={addFleet} go={go} />; break;
-    case 'invoices': screen = <Invoices invoices={vInvoices} trucks={trucks} go={go} />; break;
-    case 'invoice': { const inv = invoices.find((x) => x.id === route.param); screen = inv ? <InvoiceDetail invoice={inv} trucks={trucks} onStatus={setInvoiceStatus} go={go} /> : <Invoices invoices={vInvoices} trucks={trucks} go={go} />; break; }
-    case 'newinvoice': screen = <NewInvoice fleetIds={myFleets} trucks={vTrucks} onSave={addInvoice} go={go} />; break;
+    case 'fleets': screen = readOnly(<ManageFleets fleets={fleets} trucks={trucks} parts={parts} onAdd={addFleet} go={go} />); break;
+    case 'invoices': screen = readOnly(<Invoices invoices={vInvoices} trucks={trucks} go={go} />); break;
+    case 'invoice': { const inv = invoices.find((x) => x.id === route.param); screen = (inv && isAdmin) ? <InvoiceDetail invoice={inv} trucks={trucks} onStatus={setInvoiceStatus} go={go} /> : <Invoices invoices={vInvoices} trucks={trucks} go={go} />; break; }
+    case 'newinvoice': screen = readOnly(<NewInvoice fleetIds={myFleets} trucks={vTrucks} onSave={addInvoice} go={go} />); break;
     case 'more': screen = <MoreHub user={user} fleet={fleet} onFleet={setFleet} fleetIds={myFleets} multiFleet={multiFleet} fleetCount={Object.keys(fleets).length} inspections={vInspections} invoices={vInvoices} go={go} theme={userTheme} onTheme={chooseTheme} />; break;
-    default: screen = <Dashboard user={user} fleet={fleet} trucks={vTrucks} issues={vIssues} parts={vParts} go={go} />;
+    default: screen = home;
   }
 
   const nav = [

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { fleetRegistry, INSPECT_SINGLE, INSPECT_POSITIONS, INSPECT_POSITION_CATS, INSPECT_FLUIDS, INSPECT_DRIVETRAIN } from '../data.js';
-import { C, Icon, Badge, cardStyle, rowStyle, Field, Select, PrimaryBtn, GhostBtn, Header, MediaUpload, SectionTitle, sevColor, fmtDate } from '../ui.jsx';
+import { C, Icon, Badge, cardStyle, rowStyle, Field, Select, PrimaryBtn, GhostBtn, Header, MediaUpload, MediaGallery, SectionTitle, sevColor, fmtDate } from '../ui.jsx';
 import { FleetChip, Chip, EmptyNote } from './core.jsx';
 
 export function IssueCard({ issue, truckPlate, compact, onEdit, selectable, selected, onToggle }) {
@@ -29,15 +29,7 @@ export function IssueCard({ issue, truckPlate, compact, onEdit, selectable, sele
         {i.photos && i.photos.length > 0 && <Badge color={C.mutedFg}><Icon name="camera" size={12} /> {i.photos.length}</Badge>}
       </div>
       {Array.isArray(i.photos) && i.photos.some((m) => m && m.url) && (
-        <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-          {i.photos.filter((m) => m && m.url).map((m, idx) => (
-            <div key={idx} style={{ width: 60, height: 60, borderRadius: 10, overflow: 'hidden', border: `1px solid ${C.border}`, position: 'relative', background: C.surface2 }}>
-              {m.type === 'video'
-                ? <><video src={m.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted playsInline /><span style={{ position: 'absolute', left: 4, bottom: 4, background: 'rgba(0,0,0,.55)', color: '#fff', fontSize: 8, fontWeight: 800, padding: '1px 4px', borderRadius: 4 }}>VIDEO</span></>
-                : <img src={m.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
-            </div>
-          ))}
-        </div>
+        <div style={{ marginTop: 10 }}><MediaGallery items={i.photos} size={60} /></div>
       )}
       {i.serious && i.partsNeeded && (
         <div style={{ marginTop: 10, padding: 10, borderRadius: 10, background: C.crit + '10', fontSize: 12.5 }}>

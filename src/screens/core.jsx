@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { fleetRegistry } from '../data.js';
 import { signIn } from '../lib/auth.js';
-import { C, Icon, Badge, cardStyle, rowStyle, Field, Select, PrimaryBtn, GhostBtn, Header, SectionTitle, sevColor, statusColor, statusLabel, fmtDate, fmtNum, daysUntil, fileToScaledImage } from '../ui.jsx';
+import { C, Icon, Badge, cardStyle, rowStyle, Field, Select, PrimaryBtn, GhostBtn, Header, SectionTitle, MediaGallery, sevColor, statusColor, statusLabel, fmtDate, fmtNum, daysUntil, fileToScaledImage } from '../ui.jsx';
 import markNavy from '../../public/assets/nodrog-mark.svg';
 import markLight from '../../public/assets/nodrog-mark-light.svg';
 
@@ -448,13 +448,7 @@ export function TruckDetail({ truck, issues, usage, parts, history, go, onToggle
           {i.oos && <Badge color={C.crit} solid><Icon name="ban" size={12} /> OUT OF SERVICE</Badge>}
         </div>
         {Array.isArray(i.photos) && i.photos.some((m) => m && m.url) && (
-          <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-            {i.photos.filter((m) => m && m.url).map((m, idx) => (
-              <div key={idx} style={{ width: 56, height: 56, borderRadius: 10, overflow: 'hidden', border: `1px solid ${C.border}`, background: C.surface2 }}>
-                {m.type === 'video' ? <video src={m.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted playsInline /> : <img src={m.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
-              </div>
-            ))}
-          </div>
+          <div style={{ marginTop: 10 }}><MediaGallery items={i.photos} size={56} /></div>
         )}
       </div>
     );
