@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { fleetRegistry, THEMES } from '../data.js';
-import { C, Icon, Badge, cardStyle, rowStyle, Field, Select, PrimaryBtn, GhostBtn, Header, SectionTitle, fmtDate, fmtNum } from '../ui.jsx';
+import { C, Icon, Badge, cardStyle, rowStyle, Field, Select, PrimaryBtn, GhostBtn, Header, SectionTitle, MediaGallery, fmtDate, fmtNum } from '../ui.jsx';
 import { FleetChip, Chip, EmptyNote } from './core.jsx';
 
 const money = (n) => '$' + Number(n || 0).toLocaleString('en-US');
@@ -61,7 +61,7 @@ export function MoreHub({ user, fleet, onFleet, fleetIds = [], multiFleet, fleet
   );
   return (
     <div>
-      <Header title="More" sub={user.admin ? 'Admin tools' : 'Records & reports'} />
+      <Header title="More" sub={user.admin ? 'Admin tools' : 'View only · records & reports'} />
       <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
         <SectionTitle>Records</SectionTitle>
         <Item icon="clip" title="Weekly reports" desc="Review past inspection sheets" badge={inspections.length} onClick={() => go('weeklyreports')} />
@@ -238,15 +238,7 @@ export function ReportDetail({ report, trucks, go, canEdit }) {
         {Array.isArray(report.media) && report.media.some((m) => m && m.url) && (
           <div>
             <SectionTitle>Photos &amp; video</SectionTitle>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {report.media.filter((m) => m && m.url).map((m, i) => (
-                <div key={i} style={{ width: 88, height: 88, borderRadius: 10, overflow: 'hidden', border: `1px solid ${C.border}`, background: C.surface2, position: 'relative' }}>
-                  {m.type === 'video'
-                    ? <><video src={m.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted playsInline /><span style={{ position: 'absolute', left: 4, bottom: 4, background: 'rgba(0,0,0,.55)', color: '#fff', fontSize: 8, fontWeight: 800, padding: '1px 4px', borderRadius: 4 }}>VIDEO</span></>
-                    : <img src={m.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
-                </div>
-              ))}
-            </div>
+            <MediaGallery items={report.media} size={88} />
           </div>
         )}
         {flagged.length > 0 && <>

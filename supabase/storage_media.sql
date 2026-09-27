@@ -8,6 +8,7 @@
 -- with the (unguessable) link read. Safe to re-run.
 
 -- uploads: any authenticated user can add files to the media bucket
+-- (tightened to admins only by admin_only_writes.sql — run that after this file)
 drop policy if exists "auth upload media" on storage.objects;
 create policy "auth upload media" on storage.objects for insert to authenticated
   with check ( bucket_id = 'media' );

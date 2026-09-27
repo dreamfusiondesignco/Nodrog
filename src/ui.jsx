@@ -1,5 +1,6 @@
 // ui.jsx — shared UI: theme engine, icons, primitives, phone frame
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { THEMES } from './data.js';
 
 import markNavy from '../public/assets/nodrog-mark.svg';
@@ -182,6 +183,7 @@ export function MediaUpload({ value = [], onChange, maxPhotos = 8, allowVideo = 
   const photoRef = useRef(null);
   const videoRef = useRef(null);
   const [busy, setBusy] = useState(false);
+  const [viewing, setViewing] = useState(-1);
   const photos = value.filter((m) => m.type === "image");
   const videos = value.filter((m) => m.type === "video");
 
@@ -219,13 +221,14 @@ export function MediaUpload({ value = [], onChange, maxPhotos = 8, allowVideo = 
     <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
       {photos.map((m, i) => (
         <div key={"p" + i} style={tile()}>
-          <img src={m.url} alt={m.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          <img src={m.url} alt={m.name} onClick={() => setViewing(value.indexOf(m))} style={{ width: "100%", height: "100%", objectFit: "cover", cursor: "zoom-in" }} />
           <button onClick={() => removeAt(m)} aria-label="Remove photo" style={removeBtn}><Icon name="x" size={13} color="#fff" /></button>
         </div>
       ))}
       {videos.map((m, i) => (
         <div key={"v" + i} style={tile({ display: "flex", alignItems: "center", justifyContent: "center", color: C.accent })}>
-          <video src={m.url} style={{ width: "100%", height: "100%", objectFit: "cover" }} muted playsInline />
+          <video src={m.url} onClick={() => setViewing(value.indexOf(m))} style={{ width: "100%", height: "100%", objectFit: "cover", cursor: "pointer" }} muted playsInline preload="metadata" />
+          <PlayBadge />
           <span style={{ position: "absolute", left: 6, bottom: 6, background: "rgba(0,0,0,.55)", color: "#fff", fontSize: 9, fontWeight: 800, padding: "2px 5px", borderRadius: 5 }}>VIDEO</span>
           <button onClick={() => removeAt(m)} aria-label="Remove video" style={removeBtn}><Icon name="x" size={13} color="#fff" /></button>
         </div>
@@ -244,6 +247,7 @@ export function MediaUpload({ value = [], onChange, maxPhotos = 8, allowVideo = 
       )}
       <input ref={photoRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={(e) => { addPhotos(e.target.files); e.target.value = ""; }} />
       <input ref={videoRef} type="file" accept="video/*" style={{ display: "none" }} onChange={(e) => { addVideo(e.target.files); e.target.value = ""; }} />
+      {viewing >= 0 && <MediaViewer items={value} start={viewing} onClose={() => setViewing(-1)} />}
     </div>
   );
 }
@@ -252,6 +256,73 @@ const removeBtn = {
   border: "none", background: "rgba(0,0,0,.55)", cursor: "pointer",
   display: "flex", alignItems: "center", justifyContent: "center", padding: 0,
 };
+
+const PlayBadge = () => (
+  <span style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: 28, height: 28, borderRadius: 999, background: "rgba(0,0,0,.55)", display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
+    <Icon name="play" size={14} color="#fff" fill="#fff" strokeWidth={1} />
+  </span>
+);
+
+// Read-only thumbnail strip for saved photos/videos. Tapping a thumbnail opens the
+// full-screen viewer, where images can be enlarged and videos played / replayed.
+// Removing media is done only from the edit forms (MediaUpload), which only admins reach.
+export function MediaGallery({ items, size = 60 }) {
+  const [viewing, setViewing] = useState(-1);
+  const list = (Array.isArray(items) ? items : []).filter((m) => m && m.url);
+  if (!list.length) return null;
+  return (
+    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+      {list.map((m, idx) => (
+        <button key={idx} type="button" onClick={(e) => { e.stopPropagation(); setViewing(idx); }} aria-label={m.type === "video" ? "Play video" : "View photo"}
+          style={{ width: size, height: size, padding: 0, borderRadius: 10, overflow: "hidden", border: `1px solid ${C.border}`, position: "relative", background: C.surface2, cursor: "pointer", flexShrink: 0 }}>
+          {m.type === "video"
+            ? <><video src={m.url} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} muted playsInline preload="metadata" /><PlayBadge /></>
+            : <img src={m.url} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />}
+        </button>
+      ))}
+      {viewing >= 0 && <MediaViewer items={list} start={viewing} onClose={() => setViewing(-1)} />}
+    </div>
+  );
+}
+
+// Full-screen lightbox: large photo, or a video with native controls (play, pause,
+// scrub, replay). Arrows / swipe-free buttons step through the set; Esc closes.
+export function MediaViewer({ items, start = 0, onClose }) {
+  const [idx, setIdx] = useState(start);
+  const n = items.length;
+  const m = items[idx];
+  const prev = () => setIdx((i) => (i - 1 + n) % n);
+  const next = () => setIdx((i) => (i + 1) % n);
+  useEffect(() => {
+    const k = (e) => { if (e.key === "Escape") onClose(); else if (e.key === "ArrowLeft") prev(); else if (e.key === "ArrowRight") next(); };
+    window.addEventListener("keydown", k);
+    return () => window.removeEventListener("keydown", k);
+  }, [n]);
+  if (!m) return null;
+  const navBtn = (side) => ({
+    position: "absolute", top: "50%", [side]: 10, transform: "translateY(-50%)", width: 44, height: 44, borderRadius: 999,
+    border: "none", background: "rgba(255,255,255,.14)", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+  });
+  return createPortal(
+    <div role="dialog" aria-modal="true" onClick={onClose}
+      style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,.92)", display: "flex", alignItems: "center", justifyContent: "center", padding: "56px 12px 40px", boxSizing: "border-box" }}>
+      <button onClick={onClose} aria-label="Close" style={{ position: "absolute", top: "calc(env(safe-area-inset-top, 0px) + 12px)", right: 12, width: 40, height: 40, borderRadius: 999, border: "none", background: "rgba(255,255,255,.14)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <Icon name="x" size={20} color="#fff" />
+      </button>
+      <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: "100%", maxHeight: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        {m.type === "video"
+          ? <video key={m.url} src={m.url} controls autoPlay playsInline style={{ maxWidth: "100%", maxHeight: "calc(100vh - 110px)", borderRadius: 8, background: "#000" }} />
+          : <img key={m.url} src={m.url} alt={m.name || ""} style={{ maxWidth: "100%", maxHeight: "calc(100vh - 110px)", objectFit: "contain", borderRadius: 8 }} />}
+      </div>
+      {n > 1 && <>
+        <button onClick={(e) => { e.stopPropagation(); prev(); }} aria-label="Previous" style={navBtn("left")}><Icon name="back" size={22} color="#fff" /></button>
+        <button onClick={(e) => { e.stopPropagation(); next(); }} aria-label="Next" style={navBtn("right")}><Icon name="chevron" size={22} color="#fff" /></button>
+        <div style={{ position: "absolute", bottom: "calc(env(safe-area-inset-bottom, 0px) + 12px)", left: 0, right: 0, textAlign: "center", color: "#fff", fontSize: 13, fontWeight: 700 }}>{idx + 1} / {n}</div>
+      </>}
+    </div>,
+    document.body
+  );
+}
 
 export const SectionTitle = ({ children, right }) => (
   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "14px 0 2px" }}>
