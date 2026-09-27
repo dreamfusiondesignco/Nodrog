@@ -116,8 +116,8 @@ export default function App() {
   const vInspections = useMemo(() => scope(inspections), [inspections, fleet, user, fleets]);
   const vInvoices = useMemo(() => scope(invoices), [invoices, fleet, user, fleets]);
 
-  const go = (name, param = null) => {
-    setRoute({ name, param });
+  const go = (name, param = null, tab = null) => {
+    setRoute({ name, param, tab });
     if (['dashboard', 'trucks', 'issues', 'inventory', 'more'].includes(name)) setTab(name);
     if (['newtruck', 'truck', 'newcheck', 'usepart', 'editdocs', 'newservice'].includes(name)) setTab('trucks');
     if (['reports', 'weeklyreports', 'invoices', 'fleets', 'newpart', 'report', 'editcheck', 'invoice', 'newinvoice'].includes(name)) setTab('more');
@@ -331,10 +331,59 @@ export default function App() {
       }
     } catch (e) { fail('Could not save photo', e); }
   };
+  // Work out which service readings a record covers from its type, e.g.
+  // "Engine service + air filter" → engine + airFilter, "Transmission + diffs" → transmission + both diffs.
+  const serviceParts = (type) => {
+    const s = (type || '').toLowerCase();
+    const out = [];
+    if (s.includes('engine') || s.includes('oil')) out.push('engine');
+    if (s.includes('air filter')) out.push('airFilter');
+    if (s.includes('transmission') || s.includes('gearbox')) out.push('transmission');
+    if (s.includes('diff')) {
+      const front = s.includes('front'), rear = s.includes('rear');
+      if (front || !rear) out.push('frontDiff');
+      if (rear || !front) out.push('rearDiff');
+    }
+    return out;
+  };
+  // Apply a service record to the truck's service readings (last done + next due) and
+  // odometer. Older back-dated records never overwrite a more recent reading.
+  const applyService = (tr, rec) => {
+    const parts = serviceParts(rec.type);
+    const miles = +rec.miles || 0;
+    const hrs = rec.idleHrs !== '' && rec.idleHrs != null ? +rec.idleHrs : (tr.idleHrs || 0);
+    const service = { ...(tr.service || {}) };
+    let changed = false;
+    for (const k of parts) {
+      const cur = service[k] || {};
+      if (cur.date && rec.date && rec.date < cur.date) continue;
+      const next = { ...cur, lastMiles: miles, date: rec.date || today };
+      if (k !== 'airFilter') next.lastIdleHrs = hrs;
+      if (k === 'engine') { next.nextDueMiles = miles + 8000; next.nextDueHrs = hrs + 500; }
+      service[k] = next;
+      changed = true;
+    }
+    const upd = {};
+    if (changed) upd.service = service;
+    if (miles > (tr.odometer || 0)) upd.odometer = miles;
+    if (hrs > (tr.idleHrs || 0)) upd.idleHrs = hrs;
+    return upd;
+  };
   const addService = async (truckId, rec) => {
     if (denied()) return;
-    try { const saved = await db.insertHistory({ truckId, by: user.name, ...rec }, user); setHistory((arr) => [saved, ...arr]); showToast('Service record added'); go('truck', truckId); }
-    catch (e) { fail('Could not add service record', e); }
+    try {
+      const { idleHrs, ...histRec } = rec;
+      const saved = await db.insertHistory({ truckId, by: user.name, ...histRec }, user);
+      setHistory((arr) => [saved, ...arr]);
+      const tr = trucks.find((x) => x.id === truckId);
+      const upd = tr ? applyService(tr, rec) : {};
+      if (Object.keys(upd).length) {
+        setTrucks((arr) => arr.map((x) => x.id === truckId ? { ...x, ...upd } : x));
+        await db.patchTruck(truckId, upd);
+      }
+      showToast(upd.service ? 'Service record added · service readings updated' : 'Service record added');
+      go('truck', truckId, 'svchistory');
+    } catch (e) { fail('Could not add service record', e); }
   };
 
   const Tweaks = (
@@ -361,7 +410,7 @@ export default function App() {
   switch (route.name) {
     case 'trucks': screen = <Trucks fleet={fleet} multiFleet={multiFleet} fleetIds={myFleets} trucks={vTrucks} go={go} canEdit={isAdmin} />; break;
     case 'newtruck': screen = isAdmin ? <NewTruck fleetIds={myFleets} onSave={addTruck} go={go} /> : <Trucks fleet={fleet} multiFleet={multiFleet} fleetIds={myFleets} trucks={vTrucks} go={go} canEdit={isAdmin} />; break;
-    case 'truck': { const tr = trucks.find((x) => x.id === route.param); screen = tr ? <TruckDetail truck={tr} issues={issues} usage={usage} parts={parts} history={history} go={go} onToggleOOS={toggleOOS} onPhoto={setTruckPhoto} canEdit={canEdit} canEditTruck={isAdmin} /> : <Trucks fleet={fleet} multiFleet={multiFleet} fleetIds={myFleets} trucks={vTrucks} go={go} canEdit={isAdmin} />; break; }
+    case 'truck': { const tr = trucks.find((x) => x.id === route.param); screen = tr ? <TruckDetail key={tr.id + (route.tab || '')} initialTab={route.tab} truck={tr} issues={issues} usage={usage} parts={parts} history={history} go={go} onToggleOOS={toggleOOS} onPhoto={setTruckPhoto} canEdit={canEdit} canEditTruck={isAdmin} /> : <Trucks fleet={fleet} multiFleet={multiFleet} fleetIds={myFleets} trucks={vTrucks} go={go} canEdit={isAdmin} />; break; }
     case 'issues': screen = <Issues trucks={trucks} issues={vIssues} go={go} canEdit={canEdit} onDelete={removeIssues} />; break;
     case 'newissue': screen = readOnly(<NewIssue trucks={vTrucks} preTruck={route.param} onSave={saveIssue} go={go} />); break;
     case 'editissue': { const iss = issues.find((x) => x.id === route.param); screen = (iss && isAdmin) ? <EditIssue issue={iss} trucks={trucks} onSave={editIssue} onDelete={removeIssue} go={go} /> : <Issues trucks={trucks} issues={vIssues} go={go} canEdit={canEdit} />; break; }

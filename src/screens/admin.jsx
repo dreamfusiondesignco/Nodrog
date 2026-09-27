@@ -503,6 +503,7 @@ export function NewService({ truck, onSave, go }) {
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [type, setType] = useState('');
   const [miles, setMiles] = useState(String(truck.odometer || ''));
+  const [idleHrs, setIdleHrs] = useState(String(truck.idleHrs || ''));
   const [notes, setNotes] = useState('');
   const presets = ['Engine service', 'Engine service + air filter', 'Transmission + diffs', 'Brake service', 'Tyres', 'General inspection'];
   return (
@@ -519,11 +520,13 @@ export function NewService({ truck, onSave, go }) {
           <div style={{ flex: 1 }}><Field label="Date" value={date} onChange={(e) => setDate(e.target.value)} type="date" /></div>
           <div style={{ flex: 1 }}><Field label="Odometer (mi)" value={miles} onChange={(e) => setMiles(e.target.value.replace(/[^0-9]/g, ''))} inputMode="numeric" placeholder="0" /></div>
         </div>
+        <Field label="Idle hours" value={idleHrs} onChange={(e) => setIdleHrs(e.target.value.replace(/[^0-9.]/g, ''))} inputMode="decimal" placeholder="0" />
+        <div style={{ fontSize: 11.5, color: C.mutedFg, margin: '-6px 0 14px' }}>Engine, air filter, transmission and diff services also update the truck's service readings and next-due mileage.</div>
         <label style={{ display: 'block', marginBottom: 14 }}>
           <span style={{ display: 'block', fontSize: 13, fontWeight: 700, marginBottom: 6, color: C.fg }}>Notes</span>
           <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} placeholder="What was done…" style={{ width: '100%', borderRadius: 11, border: `1px solid ${C.border}`, padding: 12, fontSize: 16, boxSizing: 'border-box', resize: 'vertical', background: C.surface, color: C.fg, fontFamily: 'inherit' }} />
         </label>
-        <PrimaryBtn disabled={!type.trim()} onClick={() => onSave(truck.id, { date, type, miles: +miles || 0, notes })}>
+        <PrimaryBtn disabled={!type.trim()} onClick={() => onSave(truck.id, { date, type, miles: +miles || 0, idleHrs, notes })}>
           <Icon name="check" size={18} /> Save to service history
         </PrimaryBtn>
       </div>

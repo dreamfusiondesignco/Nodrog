@@ -402,8 +402,8 @@ export function Trucks({ fleet, multiFleet, fleetIds = ['IGL', 'MASSY'], trucks,
   );
 }
 
-export function TruckDetail({ truck, issues, usage, parts, history, go, onToggleOOS, onPhoto, canEdit, canEditTruck = false }) {
-  const [tab, setTab] = useState('service');
+export function TruckDetail({ truck, issues, usage, parts, history, go, onToggleOOS, onPhoto, canEdit, canEditTruck = false, initialTab }) {
+  const [tab, setTab] = useState(initialTab || 'service');
   const tIssues = issues.filter((i) => i.truckId === truck.id);
   const openIss = tIssues.filter((i) => i.status === 'open');
   const pastIss = tIssues.filter((i) => i.status !== 'open').sort((a, b) => (b.date || '').localeCompare(a.date || ''));
