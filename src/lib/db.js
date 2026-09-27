@@ -159,6 +159,7 @@ export async function patchTruck(id, fields) {
   if ('mvRegExp' in fields) row.mv_reg_exp = dOut(fields.mvRegExp);
   if ('carrierLicExp' in fields) row.carrier_lic_exp = dOut(fields.carrierLicExp);
   if ('fireExtDate' in fields) row.fire_ext_date = dOut(fields.fireExtDate);
+  if ('service' in fields) row.service = fields.service || {};
   if (!Object.keys(row).length) return;
   const { error } = await supabase.from('trucks').update(row).eq('id', id);
   if (error) throw error;
