@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { fleetRegistry, THEMES } from '../data.js';
-import { C, Icon, Badge, cardStyle, rowStyle, Field, Select, PrimaryBtn, GhostBtn, Header, SectionTitle, MediaGallery, fmtDate, fmtNum } from '../ui.jsx';
+import { C, Icon, Badge, cardStyle, rowStyle, Field, Select, PrimaryBtn, GhostBtn, Header, SectionTitle, MediaGallery, MediaUpload, fmtDate, fmtNum } from '../ui.jsx';
 import { FleetChip, Chip, EmptyNote } from './core.jsx';
 
 const money = (n) => '$' + Number(n || 0).toLocaleString('en-US');
@@ -107,6 +107,7 @@ export function NewPart({ fleetIds, onSave, go }) {
   const [sku, setSku] = useState('');
   const [qty, setQty] = useState('');
   const [min, setMin] = useState('');
+  const [media, setMedia] = useState([]);
   return (
     <div>
       <Header title="New part" sub="Add an inventory item" onBack={() => go('inventory')} />
@@ -117,7 +118,11 @@ export function NewPart({ fleetIds, onSave, go }) {
           <div style={{ flex: 1 }}><Field label="Quantity in stock" value={qty} onChange={(e) => setQty(e.target.value.replace(/[^0-9]/g, ''))} inputMode="numeric" placeholder="0" /></div>
           <div style={{ flex: 1 }}><Field label="Min level (alert)" value={min} onChange={(e) => setMin(e.target.value.replace(/[^0-9]/g, ''))} inputMode="numeric" placeholder="0" /></div>
         </div>
-        <PrimaryBtn disabled={!name.trim()} onClick={() => onSave({ name, sku, qty: +qty || 0, min: +min || 0, location: '', fleet: 'SHARED' })}>
+        <div style={{ marginBottom: 16 }}>
+          <span style={{ display: 'block', fontSize: 13, fontWeight: 700, marginBottom: 8, color: C.fg }}>Photos <span style={{ fontWeight: 600, color: C.mutedFg }}>(optional)</span></span>
+          <MediaUpload value={media} onChange={setMedia} maxPhotos={4} allowVideo={false} />
+        </div>
+        <PrimaryBtn disabled={!name.trim()} onClick={() => onSave({ name, sku, qty: +qty || 0, min: +min || 0, location: '', fleet: 'SHARED', media })}>
           <Icon name="check" size={18} /> Save part
         </PrimaryBtn>
       </div>

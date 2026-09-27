@@ -27,8 +27,8 @@ const truckToRow = (t) => ({
   fitness_exp: dOut(t.fitnessExp), mv_reg_exp: dOut(t.mvRegExp), carrier_lic_exp: dOut(t.carrierLicExp),
 });
 
-const partFromRow = (r) => ({ id: r.id, fleet: r.fleet, name: r.name, sku: r.sku || '', qty: r.qty ?? 0, min: r.min_level ?? 0, location: r.location || '' });
-const partToRow = (p) => ({ fleet: p.fleet, name: p.name, sku: p.sku, qty: p.qty, min_level: p.min, location: p.location });
+const partFromRow = (r) => ({ id: r.id, fleet: r.fleet, name: r.name, sku: r.sku || '', qty: r.qty ?? 0, min: r.min_level ?? 0, location: r.location || '', photos: r.media || [] });
+const partToRow = (p) => ({ fleet: p.fleet, name: p.name, sku: p.sku, qty: p.qty, min_level: p.min, location: p.location, media: p.photos || [] });
 
 const issueFromRow = (r) => ({ id: r.id, fleet: r.fleet, truckId: r.truck_id, title: r.title, detail: r.detail || '', severity: r.severity, status: r.status, serious: !!r.serious, oos: !!r.oos, partsNeeded: r.parts_needed || '', photos: r.media || [], date: dIn(r.date), by: r.by_name || '' });
 const issueToRow = (i, user) => ({ fleet: i.fleet, truck_id: i.truckId, title: i.title, detail: i.detail, severity: i.severity, status: i.status || 'open', serious: i.serious, oos: i.oos, parts_needed: i.partsNeeded, media: i.photos || [], date: dOut(i.date), by_user: user?.id || null, by_name: i.by || user?.name || '' });

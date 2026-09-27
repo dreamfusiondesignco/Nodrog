@@ -63,6 +63,7 @@ create table public.parts (
   qty         integer not null default 0,
   min_level   integer not null default 0,
   location    text,
+  media       jsonb not null default '[]',           -- optional part photos: [{type:'image', url, name}]
   created_at  timestamptz default now()
 );
 create index on public.parts (fleet);
