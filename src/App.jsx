@@ -278,7 +278,14 @@ export default function App() {
   };
   const addPart = async (p) => {
     if (denied()) return;
-    try { const saved = await db.insertPart({ ...p }); setParts((arr) => [saved, ...arr]); showToast(`Part "${saved.name}" added`); go('inventory'); }
+    try {
+      const { items: photos, failed } = await db.uploadMedia(p.media || [], user.id);
+      const { media, ...rest } = p;
+      const saved = await db.insertPart({ ...rest, photos });
+      setParts((arr) => [saved, ...arr]);
+      showToast(failed ? `Part "${saved.name}" added · ${failed} photo(s) couldn't upload` : `Part "${saved.name}" added`);
+      go('inventory');
+    }
     catch (e) { fail('Could not add part', e); }
   };
   const addFleet = async (f) => {

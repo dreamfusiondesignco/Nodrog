@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { fleetRegistry, INSPECT_SINGLE, INSPECT_POSITIONS, INSPECT_POSITION_CATS, INSPECT_FLUIDS, INSPECT_DRIVETRAIN } from '../data.js';
-import { C, Icon, Badge, cardStyle, rowStyle, Field, Select, PrimaryBtn, GhostBtn, Header, MediaUpload, MediaGallery, SectionTitle, sevColor, fmtDate } from '../ui.jsx';
+import { C, Icon, Badge, cardStyle, rowStyle, Field, Select, PrimaryBtn, GhostBtn, Header, MediaUpload, MediaGallery, MediaViewer, SectionTitle, sevColor, fmtDate } from '../ui.jsx';
 import { FleetChip, Chip, EmptyNote } from './core.jsx';
 
 export function IssueCard({ issue, truckPlate, compact, onEdit, selectable, selected, onToggle }) {
@@ -261,9 +261,7 @@ export function Inventory({ parts, multiFleet, fleetIds = ['IGL', 'MASSY'], go, 
           const isLow = p.qty <= p.min;
           return (
             <div key={p.id} style={{ ...cardStyle(), padding: 13, display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ width: 44, height: 44, borderRadius: 11, background: isLow ? C.danger + '18' : C.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center', color: isLow ? C.danger : C.accent }}>
-                <Icon name="pkg" size={21} />
-              </div>
+              <PartThumb part={p} isLow={isLow} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 800, fontSize: 14.5, color: C.fg }}>{p.name}</div>
                 <div style={{ fontSize: 12, color: C.mutedFg }}>{p.sku} · {p.location} · <FleetChip fleet={p.fleet} /></div>
@@ -282,6 +280,24 @@ export function Inventory({ parts, multiFleet, fleetIds = ['IGL', 'MASSY'], go, 
         <div style={{ height: 8 }} />
       </div>
     </div>
+  );
+}
+
+// Part image (first photo) — tap to open all of the part's photos full-screen.
+// Parts without photos keep the package icon.
+function PartThumb({ part, isLow }) {
+  const [open, setOpen] = useState(false);
+  const photos = (part.photos || []).filter((m) => m && m.url);
+  const box = { width: 44, height: 44, borderRadius: 11, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' };
+  if (!photos.length) return <div style={{ ...box, background: isLow ? C.danger + '18' : C.surface2, color: isLow ? C.danger : C.accent }}><Icon name="pkg" size={21} /></div>;
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)} aria-label={`View photos of ${part.name}`} style={{ ...box, padding: 0, overflow: 'hidden', position: 'relative', cursor: 'zoom-in', border: `1.5px solid ${isLow ? C.danger : C.border}`, background: C.surface2 }}>
+        <img src={photos[0].url} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        {photos.length > 1 && <span style={{ position: 'absolute', right: 2, bottom: 2, background: 'rgba(0,0,0,.6)', color: '#fff', fontSize: 9, fontWeight: 800, padding: '0 4px', borderRadius: 4 }}>{photos.length}</span>}
+      </button>
+      {open && <MediaViewer items={photos} start={0} onClose={() => setOpen(false)} />}
+    </>
   );
 }
 
