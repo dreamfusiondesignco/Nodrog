@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { fleetRegistry, THEMES } from '../data.js';
 import { C, Icon, Badge, cardStyle, rowStyle, Field, Select, PrimaryBtn, GhostBtn, Header, SectionTitle, MediaGallery, MediaUpload, fmtDate, fmtNum } from '../ui.jsx';
 import { FleetChip, Chip, EmptyNote } from './core.jsx';
+import { downloadInspectionPdf } from '../lib/pdf.js';
 
 const money = (n) => '$' + Number(n || 0).toLocaleString('en-US');
 export const invTotal = (inv) => (inv.items || []).reduce((s, it) => s + (+it.qty || 0) * (+it.unit || 0), 0);
@@ -210,6 +211,14 @@ export function WeeklyReports({ inspections, trucks, go }) {
 }
 
 export function ReportDetail({ report, trucks, go, canEdit }) {
+  const [busy, setBusy] = useState(false);
+  const downloadPdf = async () => {
+    if (busy) return;
+    setBusy(true);
+    try { await downloadInspectionPdf(report, trucks); }
+    catch (e) { console.error(e); alert('Could not create the PDF. Please try again.'); }
+    finally { setBusy(false); }
+  };
   const truck = trucks.find((t) => t.id === report.truckId);
   const results = report.results || {};
   const notes = report.notes || {};
@@ -257,6 +266,7 @@ export function ReportDetail({ report, trucks, go, canEdit }) {
           {ok.length === 0 && <div style={{ padding: 10 }}><EmptyNote>No items recorded.</EmptyNote></div>}
           {ok.map((k) => <Row key={k} k={k} v="ok" />)}
         </div>
+        <GhostBtn onClick={downloadPdf} disabled={busy} style={{ width: '100%', marginTop: 4 }}><Icon name="file" size={16} /> {busy ? 'Creating PDF…' : 'Download PDF'}</GhostBtn>
         {canEdit && <GhostBtn onClick={() => go('editcheck', report.id)} style={{ width: '100%', marginTop: 4 }}><Icon name="edit" size={16} /> Edit this check</GhostBtn>}
         <div style={{ height: 8 }} />
       </div>

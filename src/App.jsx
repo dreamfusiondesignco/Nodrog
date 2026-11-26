@@ -428,7 +428,7 @@ export default function App() {
     case 'usepart': screen = readOnly(<NewUsage truck={trucks.find((x) => x.id === route.param)} parts={vParts} onSave={recordUsage} go={go} />); break;
     case 'editdocs': screen = isAdmin ? <EditDocs truck={trucks.find((x) => x.id === route.param)} onSave={updateTruckDocs} go={go} /> : <TruckDetail truck={trucks.find((x) => x.id === route.param)} issues={issues} usage={usage} parts={parts} history={history} go={go} onToggleOOS={toggleOOS} onPhoto={setTruckPhoto} canEdit={canEdit} canEditTruck={isAdmin} />; break;
     case 'newservice': screen = readOnly(<NewService truck={trucks.find((x) => x.id === route.param)} onSave={addService} go={go} />); break;
-    case 'reports': screen = <Reports trucks={vTrucks} issues={vIssues} parts={vParts} fleet={fleet} go={go} />; break;
+    case 'reports': screen = <Reports trucks={vTrucks} issues={vIssues} parts={vParts} inspections={vInspections} fleet={fleet} go={go} />; break;
     case 'weeklyreports': screen = <WeeklyReports inspections={vInspections} trucks={trucks} go={go} />; break;
     case 'report': { const r = inspections.find((x) => x.id === route.param); screen = r ? <ReportDetail report={r} trucks={trucks} go={go} canEdit={canEdit} /> : <WeeklyReports inspections={vInspections} trucks={trucks} go={go} />; break; }
     case 'fleets': screen = readOnly(<ManageFleets fleets={fleets} trucks={trucks} parts={parts} onAdd={addFleet} go={go} />); break;

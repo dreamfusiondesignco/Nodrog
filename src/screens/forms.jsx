@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { fleetRegistry, INSPECT_SINGLE, INSPECT_POSITIONS, INSPECT_POSITION_CATS, INSPECT_FLUIDS, INSPECT_DRIVETRAIN } from '../data.js';
 import { C, Icon, Badge, cardStyle, rowStyle, Field, Select, PrimaryBtn, GhostBtn, Header, MediaUpload, MediaGallery, MediaViewer, SectionTitle, sevColor, fmtDate } from '../ui.jsx';
 import { FleetChip, Chip, EmptyNote } from './core.jsx';
+import { downloadWeeklySummaryPdf } from '../lib/pdf.js';
 
 export function IssueCard({ issue, truckPlate, compact, onEdit, selectable, selected, onToggle }) {
   const i = issue;
@@ -418,7 +419,15 @@ export function NewCheck({ truck, existing, onSave, go }) {
   );
 }
 
-export function Reports({ trucks, issues, parts, fleet, go }) {
+export function Reports({ trucks, issues, parts, inspections = [], fleet, go }) {
+  const [busy, setBusy] = useState(false);
+  const downloadSummary = async () => {
+    if (busy) return;
+    setBusy(true);
+    try { await downloadWeeklySummaryPdf({ trucks, issues, parts, inspections, fleet }); }
+    catch (e) { console.error(e); alert('Could not create the PDF. Please try again.'); }
+    finally { setBusy(false); }
+  };
   const open = issues.filter((i) => i.status === 'open').length;
   const serious = issues.filter((i) => i.status === 'open' && i.serious).length;
   const oos = trucks.filter((t) => t.status === 'oos').length;
@@ -430,8 +439,8 @@ export function Reports({ trucks, issues, parts, fleet, go }) {
       <div style={{ fontSize: 12, color: C.mutedFg, marginTop: 5 }}>{l}</div>
     </div>
   );
-  const Export = ({ icon, title, desc }) => (
-    <button onClick={() => alert('Demo: this would generate a ' + title + '.')} style={{ ...rowStyle() }}>
+  const Export = ({ icon, title, desc, onClick }) => (
+    <button onClick={onClick || (() => alert('Demo: this would generate a ' + title + '.'))} style={{ ...rowStyle() }}>
       <div style={{ width: 42, height: 42, borderRadius: 11, background: C.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.accent }}><Icon name={icon} size={20} /></div>
       <div style={{ flex: 1 }}><div style={{ fontWeight: 700, fontSize: 14.5 }}>{title}</div><div style={{ fontSize: 12, color: C.mutedFg }}>{desc}</div></div>
       <Icon name="chevron" size={18} color={C.mutedFg} />
@@ -445,7 +454,7 @@ export function Reports({ trucks, issues, parts, fleet, go }) {
         <div style={{ display: 'flex', gap: 10 }}><Stat v={due} l="Checks due" c={C.warn} /><Stat v={open} l="Open issues" c={C.danger} /></div>
         <div style={{ display: 'flex', gap: 10 }}><Stat v={oos} l="Out of service" c={C.crit} /><Stat v={low.length} l="Low stock" c={C.warn} /></div>
         <SectionTitle>Export</SectionTitle>
-        <Export icon="file" title="Weekly summary (PDF)" desc="Checks, issues & OOS for the week" />
+        <Export icon="file" title="Weekly summary (PDF)" desc={busy ? 'Creating PDF…' : 'Checks, issues & OOS for the week'} onClick={downloadSummary} />
         <Export icon="list" title="Inventory (spreadsheet)" desc="Stock levels & re-order list" />
         <Export icon="truck" title="Fleet register (spreadsheet)" desc="All vehicles, certs & service dates" />
         {serious > 0 && <div style={{ ...cardStyle(), borderColor: C.crit, background: C.crit + '10', padding: 14, display: 'flex', gap: 10, alignItems: 'center' }}>
