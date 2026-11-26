@@ -3,6 +3,7 @@ import { fleetRegistry, INSPECT_SINGLE, INSPECT_POSITIONS, INSPECT_POSITION_CATS
 import { C, Icon, Badge, cardStyle, rowStyle, Field, Select, PrimaryBtn, GhostBtn, Header, MediaUpload, MediaGallery, MediaViewer, SectionTitle, sevColor, fmtDate } from '../ui.jsx';
 import { FleetChip, Chip, EmptyNote } from './core.jsx';
 import { downloadWeeklySummaryPdf } from '../lib/pdf.js';
+import { downloadInventoryCsv, downloadFleetRegisterCsv } from '../lib/csv.js';
 
 export function IssueCard({ issue, truckPlate, compact, onEdit, selectable, selected, onToggle }) {
   const i = issue;
@@ -428,6 +429,10 @@ export function Reports({ trucks, issues, parts, inspections = [], fleet, go }) 
     catch (e) { console.error(e); alert('Could not create the PDF. Please try again.'); }
     finally { setBusy(false); }
   };
+  const runExport = (fn) => {
+    try { fn(); }
+    catch (e) { console.error(e); alert('Could not create the spreadsheet. Please try again.'); }
+  };
   const open = issues.filter((i) => i.status === 'open').length;
   const serious = issues.filter((i) => i.status === 'open' && i.serious).length;
   const oos = trucks.filter((t) => t.status === 'oos').length;
@@ -440,7 +445,7 @@ export function Reports({ trucks, issues, parts, inspections = [], fleet, go }) 
     </div>
   );
   const Export = ({ icon, title, desc, onClick }) => (
-    <button onClick={onClick || (() => alert('Demo: this would generate a ' + title + '.'))} style={{ ...rowStyle() }}>
+    <button onClick={onClick} style={{ ...rowStyle() }}>
       <div style={{ width: 42, height: 42, borderRadius: 11, background: C.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.accent }}><Icon name={icon} size={20} /></div>
       <div style={{ flex: 1 }}><div style={{ fontWeight: 700, fontSize: 14.5 }}>{title}</div><div style={{ fontSize: 12, color: C.mutedFg }}>{desc}</div></div>
       <Icon name="chevron" size={18} color={C.mutedFg} />
@@ -455,8 +460,8 @@ export function Reports({ trucks, issues, parts, inspections = [], fleet, go }) 
         <div style={{ display: 'flex', gap: 10 }}><Stat v={oos} l="Out of service" c={C.crit} /><Stat v={low.length} l="Low stock" c={C.warn} /></div>
         <SectionTitle>Export</SectionTitle>
         <Export icon="file" title="Weekly summary (PDF)" desc={busy ? 'Creating PDF…' : 'Checks, issues & OOS for the week'} onClick={downloadSummary} />
-        <Export icon="list" title="Inventory (spreadsheet)" desc="Stock levels & re-order list" />
-        <Export icon="truck" title="Fleet register (spreadsheet)" desc="All vehicles, certs & service dates" />
+        <Export icon="list" title="Inventory (spreadsheet)" desc="Stock levels & re-order list" onClick={() => runExport(() => downloadInventoryCsv(parts, fleet))} />
+        <Export icon="truck" title="Fleet register (spreadsheet)" desc="All vehicles, certs & service dates" onClick={() => runExport(() => downloadFleetRegisterCsv(trucks, fleet))} />
         {serious > 0 && <div style={{ ...cardStyle(), borderColor: C.crit, background: C.crit + '10', padding: 14, display: 'flex', gap: 10, alignItems: 'center' }}>
           <Icon name="alert" size={20} color={C.crit} />
           <div style={{ fontSize: 13.5, color: C.fg }}><b style={{ color: C.crit }}>{serious} serious issue{serious > 1 ? 's' : ''}</b> flagged this week.</div>
